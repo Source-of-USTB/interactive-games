@@ -115,7 +115,10 @@ export function MapBoard({ state, now, compact = false }: { state: PublicRoundSt
   return (
     <div
       className={`map-board ${compact ? "map-board--compact" : ""}`}
-      style={{ gridTemplateColumns: `repeat(${state.map.width}, 1fr)` }}
+      style={{
+        gridTemplateColumns: `repeat(${state.map.width}, minmax(0, 1fr))`,
+        gridTemplateRows: `repeat(${state.map.height}, minmax(0, 1fr))`,
+      }}
       role="img"
       aria-label={`${state.map.name} 地图，机器人位于第 ${robot.y + 1} 行第 ${robot.x + 1} 列`}
     >
