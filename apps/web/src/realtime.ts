@@ -205,10 +205,25 @@ function makeRequestId(): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
+function tokenIssuedAt(token: string): number | undefined {
+  try {
+    const payload = token.split(".")[0];
+    if (!payload) return undefined;
+    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(payload.length / 4) * 4, "=");
+    const parsed = JSON.parse(atob(base64)) as { issuedAt?: number };
+    return typeof parsed.issuedAt === "number" ? parsed.issuedAt : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function ensurePlayerToken(): Promise<string> {
   const key = "codegame.session.token";
   const existing = localStorage.getItem(key);
-  if (existing) return existing;
+  if (existing) {
+    const issuedAt = tokenIssuedAt(existing);
+    if (issuedAt !== undefined && Date.now() - issuedAt < 20 * 60 * 60_000) return existing;
+  }
   const response = await fetch("/api/session", { method: "POST" });
   if (!response.ok) throw new Error("无法创建参与会话");
   const data = await response.json() as { token: string };
