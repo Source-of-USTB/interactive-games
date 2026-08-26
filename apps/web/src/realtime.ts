@@ -156,7 +156,7 @@ export function useRealtime({ role, token, enabled = true }: UseRealtimeOptions)
   const send = useCallback((message: Record<string, unknown>): Promise<void> => {
     const socket = socketRef.current;
     if (!socket || socket.readyState !== WebSocket.OPEN) return Promise.reject(new Error("连接尚未恢复"));
-    const requestId = crypto.randomUUID();
+    const requestId = makeRequestId();
     return new Promise<void>((resolve, reject) => {
       let attempts = 0;
       const envelope = { protocolVersion: 1, requestId, ...contextRef.current, ...message };
@@ -194,6 +194,15 @@ export function useRealtime({ role, token, enabled = true }: UseRealtimeOptions)
   }, []);
 
   return { status, state, daily, session, settings, clockOffset, notice, setNotice, send };
+}
+
+function makeRequestId(): string {
+  if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6]! & 0x0f) | 0x40;   // 标记版本 4
+  bytes[8] = (bytes[8]! & 0x3f) | 0x80;   // 标记变体
+  const hex = [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
 export async function ensurePlayerToken(): Promise<string> {
