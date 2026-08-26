@@ -1,0 +1,29 @@
+; Engine configuration file.
+; Edit through the Godot editor when visual tuning is needed.
+config_version=5
+
+[application]
+
+config/name="全场一起写代码"
+run/main_scene="res://main.tscn"
+
+[display]
+
+window/size/viewport_width=1920
+window/size/viewport_height=1080
+window/size/window_width_override=1280
+window/size/window_height_override=720
+window/stretch/mode="canvas_items"
+window/handheld/orientation=1
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/default_filters/use_nearest_mipmap_filter=false
+environment/defaults/default_clear_color=Color(0.027, 0.035, 0.075, 1)
+
+[gui]
+
+theme/default_font_multichannel_signed_distance_field=true
+

@@ -1,0 +1,12 @@
+tunnel: REPLACE_WITH_TUNNEL_UUID
+credentials-file: /absolute/path/to/REPLACE_WITH_TUNNEL_UUID.json
+
+ingress:
+  - hostname: play.example.com
+    path: ^/(join.*|assets/.*|api/(session|bootstrap|qr\.png).*|ws.*)$
+    service: http://127.0.0.1:3000
+    originRequest:
+      connectTimeout: 5s
+      noHappyEyeballs: false
+  - service: http_status:404
+

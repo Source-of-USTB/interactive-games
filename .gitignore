@@ -1,0 +1,15 @@
+node_modules/
+.pnpm-store/
+dist/
+.vite/
+coverage/
+*.tsbuildinfo
+runtime/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+.env
+deploy/cloudflared.yml
+.DS_Store
+apps/godot/.godot/
+apps/godot/export/
