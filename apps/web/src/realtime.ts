@@ -224,7 +224,11 @@ export async function ensurePlayerToken(): Promise<string> {
     const issuedAt = tokenIssuedAt(existing);
     if (issuedAt !== undefined && Date.now() - issuedAt < 20 * 60 * 60_000) return existing;
   }
-  const response = await fetch("/api/session", { method: "POST" });
+  const response = await fetch("/api/session", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+  });
   if (!response.ok) throw new Error("无法创建参与会话");
   const data = await response.json() as { token: string };
   localStorage.setItem(key, data.token);

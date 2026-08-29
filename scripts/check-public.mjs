@@ -73,7 +73,11 @@ try {
   const health = await fetchJson('/api/health');
   if (health.status !== 'ok') throw new Error('/api/health 状态不是 ok');
 
-  const session = await fetchJson('/api/session', { method: 'POST' });
+  const session = await fetchJson('/api/session', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: "{}",
+  });
   if (typeof session.token !== 'string' || session.token.length === 0) {
     throw new Error('/api/session 未返回玩家凭证');
   }
