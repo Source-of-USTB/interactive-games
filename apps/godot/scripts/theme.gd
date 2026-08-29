@@ -110,8 +110,7 @@ func draw_robot(canvas: CanvasItem, center: Vector2, cell: float, direction: Str
 
 func draw_arrow_centered(canvas: CanvasItem, text: String, center: Vector2, font_size: int, color: Color) -> void:
 	var font := ThemeDB.fallback_font
-	var advance: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
-	var pen := center + Vector2(-advance * 0.5, 0.325 * font_size)
+	var pen := center + Vector2(-0.492 * font_size, 0.353 * font_size)
 	canvas.draw_string(font, pen, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color)
 
 func direction_glyph(direction: String) -> String:

@@ -64,6 +64,7 @@ var audio_cues
 var http_request: HTTPRequest
 
 func _ready() -> void:
+	ThemeDB.fallback_font = load("res://assets/fonts/SourceHanSerifCN-Regular.woff2")
 	websocket_url = OS.get_environment("GAME_SERVER_WS")
 	if websocket_url.is_empty(): websocket_url = "ws://127.0.0.1:3000/ws"
 	screen_token = OS.get_environment("SCREEN_TOKEN")
