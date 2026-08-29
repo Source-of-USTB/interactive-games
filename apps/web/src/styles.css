@@ -103,7 +103,9 @@ h1 { letter-spacing: -0.035em; }
 .program-line { display: flex; align-items: center; width: 100%; min-height: 2.85rem; padding: .45rem .65rem; border: 1px solid transparent; border-radius: .65rem; color: var(--ink); background: rgba(2, 13, 23, .55); text-align: left; }
 .program-line:disabled { opacity: 1; }
 .program-line--active { border-color: var(--cyan); background: rgba(23, 76, 97, .65); box-shadow: inset 3px 0 var(--cyan); }
+.program-line--selected { border-color: var(--cyan); background: rgba(23, 76, 97, .65); box-shadow: inset 3px 0 var(--cyan); }
 .program-line--selectable { border-color: rgba(255,215,106,.45); cursor: pointer; }
+.program-line-badge { margin-left: auto; flex-shrink: 0; padding: .1rem .45rem; border: 1px solid rgba(255,215,106,.45); border-radius: .6rem; color: var(--yellow); font-size: .72rem; }
 .line-number { width: 2.2rem; color: #66839c; font-family: ui-monospace, monospace; font-size: .76rem; }
 .line-command { font-weight: 700; }
 .selection-confirmation { margin: .8rem 0 0; color: var(--green); text-align: center; font-size: .8rem; }

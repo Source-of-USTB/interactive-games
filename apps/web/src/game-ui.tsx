@@ -151,7 +151,7 @@ export function MapBoard({ state, now, compact = false }: { state: PublicRoundSt
 function currentTraceLine(state: PublicRoundState, now: number): number | undefined {
   const teachingReplay = state.phase === "RESULT" && !state.score?.missionStar && Boolean(state.solutionTrace?.length)
     && now - state.phaseStartedAt >= 2_000;
-  if (state.phase !== "EXECUTE" && state.phase !== "REEXECUTE" && !teachingReplay) return state.execution?.failureLine;
+  if (state.phase !== "EXECUTE" && state.phase !== "REEXECUTE" && !teachingReplay) return undefined;
   const trace = teachingReplay ? state.solutionTrace ?? [] : state.trace;
   const speed = teachingReplay ? Math.max(1, trace.reduce((sum, event) => sum + event.durationMs, 0) / 6_000) : 1;
   const elapsed = Math.max(0, now - state.phaseStartedAt - (teachingReplay ? 2_000 : 0)) * speed;
@@ -163,10 +163,11 @@ function currentTraceLine(state: PublicRoundState, now: number): number | undefi
   return trace.at(-1)?.sourceLine;
 }
 
-export function ProgramPanel({ state, now, selectable, onSelect }: {
+export function ProgramPanel({ state, now, selectable, selected, onSelect }: {
   state: PublicRoundState;
   now: number;
   selectable?: string[];
+  selected?: string;
   onSelect?: (slotId: string) => void;
 }) {
   const currentLine = currentTraceLine(state, now);
@@ -178,16 +179,18 @@ export function ProgramPanel({ state, now, selectable, onSelect }: {
       {state.slots.map((slot) => {
         const choice = visibleChoices[slot.slotId];
         const canSelect = selectable?.includes(slot.slotId) ?? false;
+        const isSelected = slot.slotId === selected;
         return (
           <button
             type="button"
-            className={`program-line ${slot.line === currentLine ? "program-line--active" : ""} ${canSelect ? "program-line--selectable" : ""}`}
+            className={`program-line ${slot.line === currentLine ? "program-line--active" : ""} ${canSelect ? "program-line--selectable" : ""} ${isSelected ? "program-line--selected" : ""}`}
             key={slot.slotId}
             disabled={!canSelect}
             onClick={() => onSelect?.(slot.slotId)}
           >
             <span className="line-number">{String(slot.line).padStart(2, "0")}</span>
             <span className="line-command">{choice === undefined ? "等待全场选择…" : `${choiceGlyph(choice)} ${choiceLabel(choice)}`}</span>
+            {canSelect && <span className="program-line-badge">可疑行</span>}
           </button>
         );
       })}
