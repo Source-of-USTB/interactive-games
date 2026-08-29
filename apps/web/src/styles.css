@@ -176,6 +176,10 @@ h1 { letter-spacing: -0.035em; }
 .field-label { display: grid; gap: .45rem; margin-bottom: .9rem; color: var(--muted); font-size: .8rem; font-weight: 800; }
 .field-label select { width: 100%; min-height: 2.8rem; padding: .55rem; border: 1px solid var(--line); border-radius: .65rem; color: var(--ink); background: #071624; }
 .field-label input[type="range"] { width: 100%; accent-color: var(--cyan); }
+.timing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .35rem 1.1rem; margin-bottom: .9rem; }
+.timing-row { display: grid; grid-template-columns: 4.6rem 1fr 2.2rem; align-items: center; gap: .5rem; color: var(--muted); font-size: .78rem; }
+.timing-row input[type="range"] { width: 100%; accent-color: var(--cyan); }
+.timing-row b { text-align: right; color: var(--ink); font-size: .8rem; }
 .toggle-row { display: flex; align-items: center; gap: .7rem; min-height: 2.7rem; color: #c4d7e7; font-size: .82rem; font-weight: 750; }
 .toggle-row input { width: 1.2rem; height: 1.2rem; accent-color: var(--green); }
 .endpoint-note { padding: .7rem; border-radius: .65rem; color: var(--muted); background: rgba(2,13,23,.5); font: .72rem/1.7 ui-monospace, monospace; overflow-wrap: anywhere; }

@@ -40,15 +40,15 @@ export interface RoomTimings {
 
 export const DEFAULT_TIMINGS: RoomTimings = {
   joinMs: 10_000,
-  briefingMs: 6_000,
-  voteMs: 5_000,
-  revealMs: 1_000,
-  compileMs: 4_000,
-  predictMs: 3_000,
-  debugSelectMs: 6_000,
-  debugPatchMs: 6_000,
+  briefingMs: 10_000,
+  voteMs: 10_000,
+  revealMs: 3_000,
+  compileMs: 3_000,
+  predictMs: 10_000,
+  debugSelectMs: 10_000,
+  debugPatchMs: 10_000,
   emergencyPatchMs: 10_000,
-  resultMs: 8_000,
+  resultMs: 10_000,
   resetMs: 3_000,
 };
 
@@ -360,9 +360,17 @@ export class GameRoom {
     this.tick(Date.now());
   }
 
-  updateTimings(values: Partial<Pick<RoomTimings, "voteMs" | "briefingMs">>): void {
-    if (values.voteMs !== undefined) this.timings.voteMs = Math.min(10_000, Math.max(3_000, values.voteMs));
-    if (values.briefingMs !== undefined) this.timings.briefingMs = Math.min(12_000, Math.max(3_000, values.briefingMs));
+  updateTimings(values: Partial<RoomTimings>): void {
+    const names: (keyof RoomTimings)[] = [
+      "joinMs", "briefingMs", "voteMs", "revealMs", "compileMs", "predictMs",
+      "debugSelectMs", "debugPatchMs", "emergencyPatchMs", "resultMs", "resetMs",
+    ];
+    for (const name of names) {
+      const value = values[name];
+      if (typeof value === "number" && Number.isFinite(value)) {
+        this.timings[name] = Math.min(30_000, Math.max(1_000, value));
+      }
+    }
     this.emit("admin-timing-update", true);
   }
 
