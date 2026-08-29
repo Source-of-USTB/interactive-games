@@ -4,12 +4,13 @@ const MapRenderer = preload("res://scripts/map_renderer.gd")
 const ProgramPanel = preload("res://scripts/program_panel.gd")
 const ProceduralAudio = preload("res://scripts/procedural_audio.gd")
 
-const ACCENT := Color("5ae4ff")
-const PURPLE := Color("a98cff")
-const GREEN := Color("45e6a1")
-const YELLOW := Color("ffd66b")
-const MUTED := Color("92a5cf")
-const PANEL := Color("0e1733")
+const Ui = preload("res://scripts/theme.gd")
+const ACCENT := Ui.ACCENT
+const PURPLE := Ui.PURPLE
+const GREEN := Ui.GREEN
+const YELLOW := Ui.YELLOW
+const MUTED := Ui.MUTED
+const PANEL := Ui.PANEL
 
 var websocket := WebSocketPeer.new()
 var websocket_url := "ws://127.0.0.1:3000/ws"
@@ -34,6 +35,7 @@ var last_envelope_sequence := -1
 var last_played_trace_sequence := -1
 var last_locked_vote_key := ""
 var display_settings: Dictionary = {"qrMode": "public", "masterVolume": 0.8, "effectsVolume": 0.8, "showVoteTrends": true, "demoMode": false}
+var ui := Ui.new()
 
 var phase_names := {
 	"ATTRACT": "等待启动", "JOIN": "扫码加入", "BRIEFING": "任务解读", "AUTHORING": "全场写代码",
@@ -62,6 +64,7 @@ var audio_cues
 var http_request: HTTPRequest
 
 func _ready() -> void:
+	ThemeDB.fallback_font = load("res://assets/fonts/SourceHanSerifCN-Regular.woff2")
 	websocket_url = OS.get_environment("GAME_SERVER_WS")
 	if websocket_url.is_empty(): websocket_url = "ws://127.0.0.1:3000/ws"
 	screen_token = OS.get_environment("SCREEN_TOKEN")
@@ -95,53 +98,45 @@ func _process(_delta: float) -> void:
 		_update_countdown(corrected_now)
 
 func _draw() -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), Color("070c1d"), true)
-	for index in range(12):
-		var x := fmod(float(index * 227 + 83), size.x)
-		var y := fmod(float(index * 131 + 47), size.y)
-		draw_circle(Vector2(x, y), 2.0 + float(index % 3), Color(ACCENT, 0.16))
-	for x in range(0, int(size.x), 80):
-		draw_line(Vector2(x, 0), Vector2(x, size.y), Color(ACCENT, 0.025), 1.0)
-	for y in range(0, int(size.y), 80):
-		draw_line(Vector2(0, y), Vector2(size.x, y), Color(PURPLE, 0.025), 1.0)
+	ui.draw_background(self)
 
 func _build_interface() -> void:
 	queue_redraw()
-	header_title = _label("全场一起写代码", 34, Color.WHITE)
+	header_title = ui.label("全场一起写代码", 34, Color.WHITE)
 	header_title.position = Vector2(58, 32)
 	header_title.size = Vector2(470, 48)
 	add_child(header_title)
 
-	phase_label = _pill("连接中", ACCENT)
+	phase_label = ui.pill("连接中", ACCENT)
 	phase_label.position = Vector2(1020, 36)
 	phase_label.size = Vector2(230, 42)
 	add_child(phase_label)
-	player_label = _label("0 人参与", 24, Color.WHITE)
+	player_label = ui.label("0 人参与", 24, Color.WHITE)
 	player_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	player_label.position = Vector2(1270, 40)
 	player_label.size = Vector2(190, 38)
 	add_child(player_label)
-	countdown_label = _label("--", 29, YELLOW)
+	countdown_label = ui.label("--", 29, YELLOW)
 	countdown_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	countdown_label.position = Vector2(1480, 35)
 	countdown_label.size = Vector2(110, 48)
 	add_child(countdown_label)
-	connection_label = _pill("● 连接中", MUTED)
+	connection_label = ui.pill("● 连接中", MUTED)
 	connection_label.position = Vector2(1610, 36)
 	connection_label.size = Vector2(250, 42)
 	add_child(connection_label)
 
-	mission_label = _label("正在同步任务…", 31, Color.WHITE)
+	mission_label = ui.label("正在同步任务…", 31, Color.WHITE)
 	mission_label.position = Vector2(58, 96)
 	mission_label.size = Vector2(1220, 52)
 	add_child(mission_label)
-	map_meta_label = _label("城市编程系统", 21, MUTED)
+	map_meta_label = ui.label("城市编程系统", 21, MUTED)
 	map_meta_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	map_meta_label.position = Vector2(1290, 103)
 	map_meta_label.size = Vector2(570, 42)
 	add_child(map_meta_label)
 
-	var map_panel := _panel(PANEL, 20)
+	var map_panel := ui.panel(PANEL, 20)
 	map_panel.position = Vector2(58, 158)
 	map_panel.size = Vector2(1160, 826)
 	add_child(map_panel)
@@ -151,7 +146,7 @@ func _build_interface() -> void:
 	map_renderer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	map_panel.add_child(map_renderer)
 
-	var qr_panel := _panel(Color("111b3b"), 18)
+	var qr_panel := ui.panel(ui.CARD_BG, 18)
 	qr_panel.position = Vector2(1250, 158)
 	qr_panel.size = Vector2(610, 178)
 	add_child(qr_panel)
@@ -161,13 +156,13 @@ func _build_interface() -> void:
 	qr_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	qr_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	qr_panel.add_child(qr_texture)
-	qr_hint = _label("扫码提交下一条指令\n无需下载 · 无需注册", 26, Color.WHITE)
+	qr_hint = ui.label("扫码提交下一条指令\n无需下载 · 无需注册", 26, Color.WHITE)
 	qr_hint.position = Vector2(184, 33)
 	qr_hint.size = Vector2(400, 110)
 	qr_hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	qr_panel.add_child(qr_hint)
 
-	var program_host := _panel(PANEL, 18)
+	var program_host := ui.panel(PANEL, 18)
 	program_host.position = Vector2(1250, 358)
 	program_host.size = Vector2(610, 456)
 	add_child(program_host)
@@ -182,26 +177,26 @@ func _build_interface() -> void:
 	vote_box.add_theme_constant_override("separation", 9)
 	add_child(vote_box)
 
-	result_panel = _panel(Color("112b33"), 18)
+	result_panel = ui.panel(Color("112b33"), 18)
 	result_panel.position = Vector2(1250, 833)
 	result_panel.size = Vector2(610, 132)
 	result_panel.visible = false
 	add_child(result_panel)
-	result_title = _label("任务结果", 28, GREEN)
+	result_title = ui.label("任务结果", 28, GREEN)
 	result_title.position = Vector2(24, 16)
 	result_title.size = Vector2(560, 42)
 	result_panel.add_child(result_title)
-	result_detail = _label("", 20, Color.WHITE)
+	result_detail = ui.label("", 20, Color.WHITE)
 	result_detail.position = Vector2(24, 60)
 	result_detail.size = Vector2(560, 56)
 	result_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	result_panel.add_child(result_detail)
 
-	status_label = _label("服务启动中", 18, MUTED)
+	status_label = ui.label("服务启动中", 18, MUTED)
 	status_label.position = Vector2(58, 1015)
 	status_label.size = Vector2(720, 34)
 	add_child(status_label)
-	footer_label = _label("今日 0 人次 · 0 条指令 · 城市能量 0", 18, MUTED)
+	footer_label = ui.label("今日 0 人次 · 0 条指令 · 城市能量 0", 18, MUTED)
 	footer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	footer_label.position = Vector2(850, 1015)
 	footer_label.size = Vector2(1010, 34)
@@ -285,12 +280,12 @@ func _apply_state(next_state: Dictionary) -> void:
 	program_panel.set_state(state)
 	var map: Dictionary = state.get("map", {})
 	mission_label.text = str(map.get("mission", "等待任务"))
-	map_meta_label.text = "第 %s 章  ·  难度 %s  ·  %s" % [map.get("chapter", 1), map.get("difficulty", 1), map.get("name", "")]
+	map_meta_label.text = "第 %s 章  ·  难度 %s  ·  %s" % [int(map.get("chapter", 1)), int(map.get("difficulty", 1)), map.get("name", "")]
 	var phase := str(state.get("phase", "ATTRACT"))
 	phase_label.text = str(phase_names.get(phase, phase))
-	player_label.text = str(state.get("connectedPlayers", 0)) + " 人参与"
+	player_label.text = str(int(state.get("connectedPlayers", 0))) + " 人参与"
 	status_label.text = "房间 %s  ·  轮次 %s  ·  %s" % [state.get("roomId", "MAIN"), state.get("roundId", "--"), state.get("mode", "COCODE")]
-	footer_label.text = "今日 %s 人次 · %s 条指令 · 修复 %s 个 Bug · 城市能量 %s" % [daily.get("participantSessions", 0), daily.get("commandsSubmitted", 0), daily.get("bugsFixed", 0), daily.get("cityEnergy", 0)]
+	footer_label.text = "今日 %s 人次 · %s 条指令 · 修复 %s 个 Bug · 城市能量 %s" % [int(daily.get("participantSessions", 0)), int(daily.get("commandsSubmitted", 0)), int(daily.get("bugsFixed", 0)), int(daily.get("cityEnergy", 0))]
 	_update_vote_bars()
 	_update_result()
 	var tally: Dictionary = state.get("currentTally", {})
@@ -309,20 +304,20 @@ func _update_countdown(corrected_now: float) -> void:
 		return
 	var remaining := maxi(0, int(ceil((ends_at - corrected_now) / 1000.0)))
 	countdown_label.text = str(remaining).pad_zeros(2)
-	countdown_label.modulate = Color("ff718e") if remaining <= 3 else YELLOW
+	countdown_label.modulate = ui.DANGER if remaining <= 3 else YELLOW
 
 func _update_vote_bars() -> void:
 	for child in vote_box.get_children(): child.queue_free()
 	vote_box.visible = str(state.get("phase", "")) != "RESULT"
 	var tally: Dictionary = state.get("currentTally", {})
 	if tally.is_empty():
-		var waiting := _label(_phase_prompt(str(state.get("phase", ""))), 22, MUTED)
+		var waiting := ui.label(_phase_prompt(str(state.get("phase", ""))), 22, MUTED)
 		waiting.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		waiting.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		vote_box.add_child(waiting)
 		return
 	if not display_settings.get("showVoteTrends", true) and not tally.get("locked", false):
-		var pulse := _label(str(tally.get("submittedCount", 0)) + " 位同学已参与，选项分布暂时隐藏", 22, ACCENT)
+		var pulse := ui.label(str(int(tally.get("submittedCount", 0))) + " 位同学已参与，选项分布暂时隐藏", 22, ACCENT)
 		pulse.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		pulse.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		vote_box.add_child(pulse)
@@ -333,7 +328,7 @@ func _update_vote_bars() -> void:
 	for raw_option in options:
 		var option: Dictionary = raw_option
 		var row := HBoxContainer.new()
-		var value := _label(_choice_label(option.get("value", "")), 20, Color.WHITE)
+		var value := ui.label(_choice_label(option.get("value", "")), 20, Color.WHITE)
 		value.custom_minimum_size = Vector2(150, 32)
 		row.add_child(value)
 		var progress := ProgressBar.new()
@@ -343,7 +338,7 @@ func _update_vote_bars() -> void:
 		progress.custom_minimum_size = Vector2(330, 28)
 		progress.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(progress)
-		var count := _label(str(option.get("count", 0)) if tally.get("locked", false) else "", 20, ACCENT)
+		var count := ui.label(str(int(option.get("count", 0))) if tally.get("locked", false) else "", 20, ACCENT)
 		count.custom_minimum_size = Vector2(42, 32)
 		count.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		row.add_child(count)
@@ -362,7 +357,7 @@ func _update_result() -> void:
 	if score.get("collaborationStar", false): stars.append("协作★")
 	result_detail.text = "  ".join(stars) + "\n" + str(state.get("map", {}).get("knowledgePoint", ""))
 	if state.has("predictionOutcome"):
-		result_detail.text += "  ·  " + str(state.get("predictions", {}).get(state.predictionOutcome, 0)) + " 位同学预测正确"
+		result_detail.text += "  ·  " + str(int(state.get("predictions", {}).get(state.predictionOutcome, 0))) + " 位同学预测正确"
 
 func _phase_prompt(phase: String) -> String:
 	return {"JOIN": "扫码加入，本轮马上开始", "BRIEFING": "请观察地图与任务目标", "COMPILE": "程序已锁定，正在编译", "PREDICT": "手机上预测这次运行结果", "EXECUTE": "指令正在城市中执行", "DEBUG_SELECT": "全场定位最可疑的代码行", "DEBUG_PATCH": "投票选出正确修复", "REEXECUTE": "修复完成，重新执行"}.get(phase, "等待下一个全场决策")
@@ -438,32 +433,3 @@ func _http_origin_from_ws(url: String) -> String:
 	var value := url.replace("wss://", "https://").replace("ws://", "http://")
 	var path_position := value.find("/ws")
 	return value.left(path_position) if path_position >= 0 else value
-
-func _label(text: String, font_size: int, color: Color) -> Label:
-	var label := Label.new()
-	label.text = text
-	label.add_theme_font_size_override("font_size", font_size)
-	label.add_theme_color_override("font_color", color)
-	return label
-
-func _pill(text: String, color: Color) -> Label:
-	var label := _label(text, 20, color)
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(color, 0.10)
-	style.border_color = Color(color, 0.35)
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(20)
-	label.add_theme_stylebox_override("normal", style)
-	return label
-
-func _panel(color: Color, radius: int) -> Panel:
-	var panel := Panel.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = color
-	style.border_color = Color(ACCENT, 0.13)
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(radius)
-	panel.add_theme_stylebox_override("panel", style)
-	return panel

@@ -10,7 +10,7 @@ import type { ChoiceValue, GameMode, PublicRoundState } from "@codegame/game-cor
 import { GAME_MAPS } from "@codegame/game-core";
 import { createSessionToken, secureTokenMatches, verifySessionToken } from "./auth.js";
 import { GameDatabase } from "./database.js";
-import { GameRoom, shanghaiDate, type RoomCheckpoint } from "./game-room.js";
+import { GameRoom, shanghaiDate, type RoomCheckpoint, type RoomTimings } from "./game-room.js";
 import { FixedWindowRateLimiter } from "./rate-limit.js";
 
 const config = {
@@ -61,6 +61,15 @@ interface ClientMessage {
   mode?: GameMode;
   voteMs?: number;
   briefingMs?: number;
+  joinMs?: number;
+  revealMs?: number;
+  compileMs?: number;
+  predictMs?: number;
+  debugSelectMs?: number;
+  debugPatchMs?: number;
+  emergencyPatchMs?: number;
+  resultMs?: number;
+  resetMs?: number;
   sequence?: number;
   qrMode?: DisplaySettings["qrMode"];
   masterVolume?: number;
@@ -388,7 +397,21 @@ function handleMessage(client: ConnectedClient, message: ClientMessage): void {
       else if (message.command === "resume") room.resume();
       else if (message.command === "reset") room.reset({ ...(message.mapId ? { mapId: message.mapId } : {}), ...(message.mode ? { mode: message.mode } : {}) });
       else if (message.command === "skip") room.skipPhase();
-      else if (message.command === "timings") room.updateTimings({ ...(message.voteMs ? { voteMs: message.voteMs } : {}), ...(message.briefingMs ? { briefingMs: message.briefingMs } : {}) });
+      else if (message.command === "timings") {
+        const timings: Partial<RoomTimings> = {};
+        if (message.joinMs !== undefined) timings.joinMs = message.joinMs;
+        if (message.briefingMs !== undefined) timings.briefingMs = message.briefingMs;
+        if (message.voteMs !== undefined) timings.voteMs = message.voteMs;
+        if (message.revealMs !== undefined) timings.revealMs = message.revealMs;
+        if (message.compileMs !== undefined) timings.compileMs = message.compileMs;
+        if (message.predictMs !== undefined) timings.predictMs = message.predictMs;
+        if (message.debugSelectMs !== undefined) timings.debugSelectMs = message.debugSelectMs;
+        if (message.debugPatchMs !== undefined) timings.debugPatchMs = message.debugPatchMs;
+        if (message.emergencyPatchMs !== undefined) timings.emergencyPatchMs = message.emergencyPatchMs;
+        if (message.resultMs !== undefined) timings.resultMs = message.resultMs;
+        if (message.resetMs !== undefined) timings.resetMs = message.resetMs;
+        room.updateTimings(timings);
+      }
       else if (message.command === "display") {
         if (message.qrMode && ["public", "local", "hidden"].includes(message.qrMode)) displaySettings.qrMode = message.qrMode;
         if (message.masterVolume !== undefined) displaySettings.masterVolume = Math.min(1, Math.max(0, message.masterVolume));

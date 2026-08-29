@@ -30,8 +30,19 @@ export function AdminPage() {
   const [maps, setMaps] = useState<MapSummary[]>([]);
   const [selectedMap, setSelectedMap] = useState("");
   const [selectedMode, setSelectedMode] = useState<GameMode>("COCODE");
-  const [voteSeconds, setVoteSeconds] = useState(5);
-  const [briefingSeconds, setBriefingSeconds] = useState(6);
+  const [timingSeconds, setTimingSeconds] = useState<Record<string, number>>({
+    joinMs: 10,
+    briefingMs: 10,
+    voteMs: 10,
+    revealMs: 3,
+    compileMs: 3,
+    predictMs: 10,
+    debugSelectMs: 10,
+    debugPatchMs: 10,
+    emergencyPatchMs: 10,
+    resultMs: 10,
+    resetMs: 3,
+  });
   const [health, setHealth] = useState<Health>();
   const [message, setMessage] = useState<string>();
   const [qrMode, setQrMode] = useState<"public" | "local" | "hidden">("public");
@@ -177,13 +188,19 @@ export function AdminPage() {
 
         <section className="admin-panel">
           <div className="panel-heading"><div><p className="eyebrow">节奏设置</p><h2>现场时间参数</h2></div></div>
-          <label className="field-label">每步投票：{voteSeconds} 秒
-            <input type="range" min="3" max="10" value={voteSeconds} onChange={(event) => setVoteSeconds(Number(event.target.value))} />
-          </label>
-          <label className="field-label">任务预览：{briefingSeconds} 秒
-            <input type="range" min="3" max="12" value={briefingSeconds} onChange={(event) => setBriefingSeconds(Number(event.target.value))} />
-          </label>
-          <button className="primary-button" type="button" onClick={() => void command("timings", { voteMs: voteSeconds * 1000, briefingMs: briefingSeconds * 1000 })}>应用时间设置</button>
+          <div className="timing-grid">
+            {TIMING_FIELDS.map(([key, label]) => (
+              <label key={key} className="timing-row">
+                <span className="timing-name">{label}</span>
+                <input type="range" min="1" max="30" value={timingSeconds[key] ?? 10} onChange={(event) => setTimingSeconds({ ...timingSeconds, [key]: Number(event.target.value) })} />
+                <b>{timingSeconds[key] ?? 10}s</b>
+              </label>
+            ))}
+          </div>
+          <button className="primary-button" type="button" onClick={() => {
+            const payload = Object.fromEntries(Object.entries(timingSeconds).map(([key, seconds]) => [key, seconds * 1000]));
+            void command("timings", payload);
+          }}>应用时间设置</button>
         </section>
 
         <section className="admin-panel admin-panel--stats">
@@ -242,3 +259,17 @@ function HealthCard({ label, value, tone }: { label: string; value: string; tone
 function modeLabel(mode: GameMode): string {
   return { COCODE: "全场共编", BUG_CLINIC: "Bug 急诊室", LOGIC_LAB: "逻辑实验室", CORE_BATTLE: "整点核心战" }[mode];
 }
+
+const TIMING_FIELDS: Array<[string, string]> = [
+  ["joinMs", "集结等待"],
+  ["briefingMs", "任务预览"],
+  ["voteMs", "每步投票"],
+  ["revealMs", "亮票展示"],
+  ["compileMs", "编译过程"],
+  ["predictMs", "结果预测"],
+  ["debugSelectMs", "定位 Bug"],
+  ["debugPatchMs", "提交补丁"],
+  ["emergencyPatchMs", "紧急补丁"],
+  ["resultMs", "结算展示"],
+  ["resetMs", "切换关卡"],
+];

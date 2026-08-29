@@ -38,13 +38,14 @@ func _draw() -> void:
 	if slots.is_empty():
 		_draw_text("此关无需填写参数", Vector2(28, y), 24, MUTED)
 		return
+	var line_height := minf(66.0, maxf(34.0, (size.y - 118.0) / float(slots.size())))
 	for raw_slot in slots:
 		var slot: Dictionary = raw_slot
 		var line := int(slot.get("line", 0))
 		var slot_id := str(slot.get("slotId", ""))
 		var selected = locked.get(slot_id, null)
 		var is_current := line == active_line
-		var row_rect := Rect2(18, y - 28, size.x - 36, 58)
+		var row_rect := Rect2(18, y - line_height * 0.5, size.x - 36, line_height)
 		if is_current:
 			draw_rect(row_rect, Color(ACCENT, 0.12), true)
 			draw_rect(Rect2(row_rect.position, Vector2(5, row_rect.size.y)), ACCENT, true)
@@ -61,7 +62,7 @@ func _draw() -> void:
 			value_color = MUTED
 		var width := ThemeDB.fallback_font.get_string_size(value_label, HORIZONTAL_ALIGNMENT_LEFT, -1, 21).x
 		_draw_text(value_label, Vector2(size.x - width - 30, y + 7), 21, value_color)
-		y += 66.0
+		y += line_height
 	var energy := int(state.get("collaborationEnergy", 0))
 	y = size.y - 42
 	_draw_text("协作能量  " + "◆".repeat(energy) + "◇".repeat(maxi(0, 3 - energy)), Vector2(28, y), 20, ACCENT)

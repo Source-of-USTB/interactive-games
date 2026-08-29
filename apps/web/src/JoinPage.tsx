@@ -135,6 +135,7 @@ export function JoinPage() {
             state={state}
             now={correctedNow}
             selectable={state.debugCandidateSlots}
+            {...(realtime.session.selectedDebugLine ? { selected: realtime.session.selectedDebugLine } : {})}
             onSelect={(slotId) => void submit({ type: "debug.line.cast", slotId })}
           />
           {realtime.session.selectedDebugLine && <p className="selection-confirmation">已选择一行，可在锁票前改选</p>}

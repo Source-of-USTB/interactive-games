@@ -26,4 +26,5 @@ environment/defaults/default_clear_color=Color(0.027, 0.035, 0.075, 1)
 [gui]
 
 theme/default_font_multichannel_signed_distance_field=true
+theme/custom_font="res://assets/fonts/SourceHanSerifCN-Regular.woff2"
 
