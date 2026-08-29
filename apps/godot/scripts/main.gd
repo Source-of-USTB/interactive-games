@@ -279,12 +279,12 @@ func _apply_state(next_state: Dictionary) -> void:
 	program_panel.set_state(state)
 	var map: Dictionary = state.get("map", {})
 	mission_label.text = str(map.get("mission", "等待任务"))
-	map_meta_label.text = "第 %s 章  ·  难度 %s  ·  %s" % [map.get("chapter", 1), map.get("difficulty", 1), map.get("name", "")]
+	map_meta_label.text = "第 %s 章  ·  难度 %s  ·  %s" % [int(map.get("chapter", 1)), int(map.get("difficulty", 1)), map.get("name", "")]
 	var phase := str(state.get("phase", "ATTRACT"))
 	phase_label.text = str(phase_names.get(phase, phase))
-	player_label.text = str(state.get("connectedPlayers", 0)) + " 人参与"
+	player_label.text = str(int(state.get("connectedPlayers", 0))) + " 人参与"
 	status_label.text = "房间 %s  ·  轮次 %s  ·  %s" % [state.get("roomId", "MAIN"), state.get("roundId", "--"), state.get("mode", "COCODE")]
-	footer_label.text = "今日 %s 人次 · %s 条指令 · 修复 %s 个 Bug · 城市能量 %s" % [daily.get("participantSessions", 0), daily.get("commandsSubmitted", 0), daily.get("bugsFixed", 0), daily.get("cityEnergy", 0)]
+	footer_label.text = "今日 %s 人次 · %s 条指令 · 修复 %s 个 Bug · 城市能量 %s" % [int(daily.get("participantSessions", 0)), int(daily.get("commandsSubmitted", 0)), int(daily.get("bugsFixed", 0)), int(daily.get("cityEnergy", 0))]
 	_update_vote_bars()
 	_update_result()
 	var tally: Dictionary = state.get("currentTally", {})
@@ -316,7 +316,7 @@ func _update_vote_bars() -> void:
 		vote_box.add_child(waiting)
 		return
 	if not display_settings.get("showVoteTrends", true) and not tally.get("locked", false):
-		var pulse := ui.label(str(tally.get("submittedCount", 0)) + " 位同学已参与，选项分布暂时隐藏", 22, ACCENT)
+		var pulse := ui.label(str(int(tally.get("submittedCount", 0))) + " 位同学已参与，选项分布暂时隐藏", 22, ACCENT)
 		pulse.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		pulse.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		vote_box.add_child(pulse)
@@ -337,7 +337,7 @@ func _update_vote_bars() -> void:
 		progress.custom_minimum_size = Vector2(330, 28)
 		progress.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(progress)
-		var count := ui.label(str(option.get("count", 0)) if tally.get("locked", false) else "", 20, ACCENT)
+		var count := ui.label(str(int(option.get("count", 0))) if tally.get("locked", false) else "", 20, ACCENT)
 		count.custom_minimum_size = Vector2(42, 32)
 		count.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		row.add_child(count)
@@ -356,7 +356,7 @@ func _update_result() -> void:
 	if score.get("collaborationStar", false): stars.append("协作★")
 	result_detail.text = "  ".join(stars) + "\n" + str(state.get("map", {}).get("knowledgePoint", ""))
 	if state.has("predictionOutcome"):
-		result_detail.text += "  ·  " + str(state.get("predictions", {}).get(state.predictionOutcome, 0)) + " 位同学预测正确"
+		result_detail.text += "  ·  " + str(int(state.get("predictions", {}).get(state.predictionOutcome, 0))) + " 位同学预测正确"
 
 func _phase_prompt(phase: String) -> String:
 	return {"JOIN": "扫码加入，本轮马上开始", "BRIEFING": "请观察地图与任务目标", "COMPILE": "程序已锁定，正在编译", "PREDICT": "手机上预测这次运行结果", "EXECUTE": "指令正在城市中执行", "DEBUG_SELECT": "全场定位最可疑的代码行", "DEBUG_PATCH": "投票选出正确修复", "REEXECUTE": "修复完成，重新执行"}.get(phase, "等待下一个全场决策")
