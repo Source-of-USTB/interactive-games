@@ -52,6 +52,7 @@ function websocketUrl(role: string, token: string): string {
 
 export function useRealtime({ role, token, enabled = true }: UseRealtimeOptions) {
   const [status, setStatus] = useState<ConnectionStatus>("connecting");
+  const [authInvalid, setAuthInvalid] = useState(false);
   const [state, setState] = useState<PublicRoundState>();
   const [daily, setDaily] = useState<DailyStats>();
   const [session, setSession] = useState<SessionView>({});
@@ -82,6 +83,7 @@ export function useRealtime({ role, token, enabled = true }: UseRealtimeOptions)
 
       socket.addEventListener("open", () => {
         reconnectRef.current = 0;
+        setAuthInvalid(false);
         setStatus("open");
         setNotice(undefined);
       });
@@ -130,6 +132,7 @@ export function useRealtime({ role, token, enabled = true }: UseRealtimeOptions)
           return;
         }
         if (event.code === 4401) {
+          setAuthInvalid(true);
           setStatus("closed");
           setNotice(role === "player" ? "参与凭证已过期，请刷新页面" : "管理密钥无效");
           return;
@@ -193,7 +196,7 @@ export function useRealtime({ role, token, enabled = true }: UseRealtimeOptions)
     });
   }, []);
 
-  return { status, state, daily, session, settings, clockOffset, notice, setNotice, send };
+  return { status, state, daily, session, settings, clockOffset, notice, setNotice, authInvalid, send };
 }
 
 function makeRequestId(): string {
