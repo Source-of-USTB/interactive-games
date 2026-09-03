@@ -337,32 +337,3 @@ export function publicMap(map: GameMap) {
 export function traceDuration(trace: TraceEvent[]): number {
   return trace.reduce((sum, event) => sum + event.durationMs, 0);
 }
-
-export function debugCandidateSlots(
-  program: ProgramNode[],
-  result: ExecutionResult,
-  maxCandidates = 4,
-): string[] {
-  const editable: Array<{ line: number; slotId: string }> = [];
-  const visit = (nodes: ProgramNode[]): void => {
-    for (const node of nodes) {
-      if (node.kind === "action" && node.slotId) editable.push({ line: node.line, slotId: node.slotId });
-      else if (node.kind === "loop") {
-        editable.push({ line: node.line, slotId: node.timesSlotId });
-        visit(node.body);
-      } else if (node.kind === "condition") {
-        visit(node.whenTrue);
-        visit(node.whenFalse);
-      }
-    }
-  };
-  visit(program);
-
-  const failureLine = result.failureLine ?? editable.at(-1)?.line ?? 1;
-  return editable
-    .map((entry) => ({ ...entry, distance: Math.abs(entry.line - failureLine) }))
-    .sort((a, b) => a.distance - b.distance || b.line - a.line)
-    .slice(0, maxCandidates)
-    .sort((a, b) => a.line - b.line)
-    .map((entry) => entry.slotId);
-}

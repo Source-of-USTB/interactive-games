@@ -4,8 +4,6 @@ import {
   chooseNextRound,
   collectSlots,
   compileProgram,
-  coreBattleMaps,
-  debugCandidateSlots,
   executeProgram,
   getMapById,
   publicMap,
@@ -31,9 +29,6 @@ export interface RoomTimings {
   revealMs: number;
   compileMs: number;
   predictMs: number;
-  debugSelectMs: number;
-  debugPatchMs: number;
-  emergencyPatchMs: number;
   resultMs: number;
   resetMs: number;
 }
@@ -45,9 +40,6 @@ export const DEFAULT_TIMINGS: RoomTimings = {
   revealMs: 3_000,
   compileMs: 3_000,
   predictMs: 10_000,
-  debugSelectMs: 10_000,
-  debugPatchMs: 10_000,
-  emergencyPatchMs: 10_000,
   resultMs: 10_000,
   resetMs: 3_000,
 };
@@ -70,8 +62,6 @@ export interface RoomCheckpoint {
   lockedChoices: Record<string, ChoiceValue>;
   currentSlotIndex: number;
   collaborationEnergy: number;
-  debugAttempts: number;
-  selectedDebugSlot?: string;
   showcaseStage: number;
   startedAt: number;
 }
@@ -127,8 +117,6 @@ export class GameRoom {
   private players = new Map<string, PlayerSession>();
   private eligibleSessions = new Set<string>();
   private slotVotes = new Map<string, Map<string, ChoiceValue>>();
-  private debugLineVotes = new Map<string, string>();
-  private debugPatchVotes = new Map<string, ChoiceValue>();
   private predictionVotes = new Map<string, Prediction>();
   private predictionOutcome: Prediction | undefined;
   private history: Array<{
@@ -160,12 +148,7 @@ export class GameRoom {
   private allCommitted = true;
   private program: ProgramNode[] = [];
   private execution: ExecutionResult | undefined;
-  private solutionExecution: ExecutionResult | undefined;
-  private solutionChoices: Record<string, ChoiceValue> | undefined;
   private firstRunSuccess = false;
-  private debugCandidates: string[] = [];
-  private selectedDebugSlot: string | undefined;
-  private debugAttempts = 0;
   private score: RoundScore | undefined;
   private resultMessage: string | undefined;
   private showcaseStage = 0;
@@ -200,13 +183,6 @@ export class GameRoom {
 
   start(options: AdminStartOptions = {}): void {
     const requestedMode = options.mode ?? "COCODE";
-    if (requestedMode === "CORE_BATTLE") {
-      const maps = coreBattleMaps();
-      this.showcaseStage = 0;
-      this.beginRound(maps[0] ?? this.map, "CORE_BATTLE", true);
-      return;
-    }
-
     const requestedMap = options.mapId ? getMapById(options.mapId) : undefined;
     if (options.mapId && !requestedMap) throw new Error(`Unknown map: ${options.mapId}`);
     if (requestedMap && !requestedMap.mode.includes(requestedMode)) {
@@ -229,8 +205,6 @@ export class GameRoom {
     this.lockedChoices = { ...checkpoint.lockedChoices };
     this.currentSlotIndex = checkpoint.currentSlotIndex;
     this.collaborationEnergy = checkpoint.collaborationEnergy;
-    this.debugAttempts = checkpoint.debugAttempts;
-    this.selectedDebugSlot = checkpoint.selectedDebugSlot;
     this.showcaseStage = checkpoint.showcaseStage;
     this.phase = checkpoint.phase;
 
@@ -238,11 +212,10 @@ export class GameRoom {
     if (compiled.ok) {
       this.program = compiled.program;
       this.execution = executeProgram(this.map, this.program);
-      this.debugCandidates = debugCandidateSlots(this.program, this.execution);
     }
 
     if (this.phase === "AUTHORING") this.openAuthoringSlot(Date.now());
-    else if (this.phase === "EXECUTE" || this.phase === "REEXECUTE") this.enterExecution(this.phase);
+    else if (this.phase === "EXECUTE") this.enterExecution();
     else if (this.phase === "RESULT") this.setPhase("RESULT", this.timings.resultMs, "restored-result");
     else this.setPhase("BRIEFING", this.timings.briefingMs, "restored-safe-boundary");
     this.hooks.onSystemEvent("room.restored", { roomId: this.roomId, roundId: this.roundId });
@@ -305,26 +278,6 @@ export class GameRoom {
     return { ok: true };
   }
 
-  castDebugLine(sessionId: string, slotId: string): { ok: boolean; reason?: string } {
-    if (this.phase !== "DEBUG_SELECT") return { ok: false, reason: "当前不是选择可疑行阶段" };
-    if (this.phaseEndsAt - Date.now() <= 1_000) return { ok: false, reason: "本步已经锁票" };
-    if (!this.debugCandidates.includes(slotId)) return { ok: false, reason: "该行不在候选范围" };
-    this.debugLineVotes.set(sessionId, slotId);
-    this.emit("debug-line-cast");
-    return { ok: true };
-  }
-
-  castDebugPatch(sessionId: string, slotId: string, value: ChoiceValue): { ok: boolean; reason?: string } {
-    if (this.phase !== "DEBUG_PATCH") return { ok: false, reason: "当前不是提交补丁阶段" };
-    if (this.phaseEndsAt - Date.now() <= 1_000) return { ok: false, reason: "本步已经锁票" };
-    if (this.selectedDebugSlot !== slotId) return { ok: false, reason: "不是当前补丁行" };
-    const slot = this.debugPatchSlot();
-    if (!slot?.options.some((option) => choicesEqual(option, value))) return { ok: false, reason: "非法补丁" };
-    this.debugPatchVotes.set(sessionId, value);
-    this.emit("debug-patch-cast");
-    return { ok: true };
-  }
-
   pause(): void {
     if (this.phase === "PAUSED") return;
     const now = Date.now();
@@ -363,7 +316,7 @@ export class GameRoom {
   updateTimings(values: Partial<RoomTimings>): void {
     const names: (keyof RoomTimings)[] = [
       "joinMs", "briefingMs", "voteMs", "revealMs", "compileMs", "predictMs",
-      "debugSelectMs", "debugPatchMs", "emergencyPatchMs", "resultMs", "resetMs",
+      "resultMs", "resetMs",
     ];
     for (const name of names) {
       const value = values[name];
@@ -380,18 +333,13 @@ export class GameRoom {
 
     if (this.phase === "JOIN") this.setPhase("BRIEFING", this.timings.briefingMs, "join-complete");
     else if (this.phase === "BRIEFING") {
-      if (this.mode === "BUG_CLINIC") {
-        this.lockedChoices = { ...this.map.buggyChoices };
-        this.beginCompile("bug-program-loaded");
-      } else this.openAuthoringSlot(now);
+      this.openAuthoringSlot(now);
     } else if (this.phase === "AUTHORING") {
       if (this.authoringStage === "VOTE") this.lockCurrentSlot(now);
       else this.advanceAuthoring(now);
     } else if (this.phase === "COMPILE") this.setPhase("PREDICT", this.timings.predictMs, "compile-complete");
-    else if (this.phase === "PREDICT") this.enterExecution("EXECUTE");
-    else if (this.phase === "EXECUTE" || this.phase === "REEXECUTE") this.finishExecution();
-    else if (this.phase === "DEBUG_SELECT") this.lockDebugLine(now);
-    else if (this.phase === "DEBUG_PATCH") this.lockDebugPatch(now);
+    else if (this.phase === "PREDICT") this.enterExecution();
+    else if (this.phase === "EXECUTE") this.finishExecution();
     else if (this.phase === "RESULT") this.afterResult();
     else if (this.phase === "RESET") this.startNextDirectedRound();
   }
@@ -416,19 +364,14 @@ export class GameRoom {
       lockedChoices: { ...this.lockedChoices },
       collaborationEnergy: this.collaborationEnergy,
       trace: this.execution?.trace ?? [],
-      debugCandidateSlots: [...this.debugCandidates],
-      debugAttempts: this.debugAttempts,
       predictions: predictionCounts,
       showcaseStage: this.showcaseStage,
-      showcaseTotalStages: this.mode === "CORE_BATTLE" ? coreBattleMaps().length : 1,
+      showcaseTotalStages: 1,
     };
     if (this.previousPhase) state.previousPhase = this.previousPhase;
     const tally = this.currentTally(now);
     if (tally) state.currentTally = tally;
     if (this.execution) state.execution = this.execution;
-    if (this.solutionExecution) state.solutionTrace = this.solutionExecution.trace;
-    if (this.solutionChoices) state.solutionChoices = { ...this.solutionChoices };
-    if (this.selectedDebugSlot) state.selectedDebugSlot = this.selectedDebugSlot;
     if (this.score) state.score = this.score;
     if (this.predictionOutcome) state.predictionOutcome = this.predictionOutcome;
     if (this.resultMessage) state.resultMessage = this.resultMessage;
@@ -438,14 +381,10 @@ export class GameRoom {
   sessionState(sessionId: string): {
     selectedVote?: ChoiceValue;
     selectedPrediction?: Prediction;
-    selectedDebugLine?: string;
-    selectedDebugPatch?: ChoiceValue;
   } {
     const value: {
       selectedVote?: ChoiceValue;
       selectedPrediction?: Prediction;
-      selectedDebugLine?: string;
-      selectedDebugPatch?: ChoiceValue;
     } = {};
     const currentSlot = this.currentSlot();
     if (currentSlot) {
@@ -454,10 +393,6 @@ export class GameRoom {
     }
     const prediction = this.predictionVotes.get(sessionId);
     if (prediction) value.selectedPrediction = prediction;
-    const debugLine = this.debugLineVotes.get(sessionId);
-    if (debugLine) value.selectedDebugLine = debugLine;
-    const debugPatch = this.debugPatchVotes.get(sessionId);
-    if (debugPatch !== undefined) value.selectedDebugPatch = debugPatch;
     return value;
   }
 
@@ -472,11 +407,9 @@ export class GameRoom {
       lockedChoices: { ...this.lockedChoices },
       currentSlotIndex: this.currentSlotIndex,
       collaborationEnergy: this.collaborationEnergy,
-      debugAttempts: this.debugAttempts,
       showcaseStage: this.showcaseStage,
       startedAt: this.startedAt,
     };
-    if (this.selectedDebugSlot) checkpoint.selectedDebugSlot = this.selectedDebugSlot;
     return checkpoint;
   }
 
@@ -489,8 +422,6 @@ export class GameRoom {
     this.currentSlotIndex = 0;
     this.authoringStage = "VOTE";
     this.slotVotes.clear();
-    this.debugLineVotes.clear();
-    this.debugPatchVotes.clear();
     this.predictionVotes.clear();
     this.eligibleSessions.clear();
     this.lockedChoices = {};
@@ -500,13 +431,8 @@ export class GameRoom {
     this.allCommitted = true;
     this.program = [];
     this.execution = undefined;
-    this.solutionExecution = undefined;
-    this.solutionChoices = undefined;
     this.firstRunSuccess = false;
     this.predictionOutcome = undefined;
-    this.debugCandidates = [];
-    this.selectedDebugSlot = undefined;
-    this.debugAttempts = 0;
     this.score = undefined;
     this.resultMessage = undefined;
     this.roundRecorded = false;
@@ -588,20 +514,18 @@ export class GameRoom {
     this.setPhase("COMPILE", this.timings.compileMs, reason);
   }
 
-  private enterExecution(phase: "EXECUTE" | "REEXECUTE"): void {
+  private enterExecution(): void {
     if (!this.execution) {
       this.beginCompile("execution-required-recompile");
       return;
     }
-    if (phase === "EXECUTE") {
-      this.predictionOutcome = this.execution.success
-        ? "success"
-        : this.execution.failureType === "COLLISION" || this.execution.failureType === "OUT_OF_BOUNDS" || this.execution.failureType === "MECHANISM"
-          ? "crash"
-          : "incomplete";
-    }
+    this.predictionOutcome = this.execution.success
+      ? "success"
+      : this.execution.failureType === "COLLISION" || this.execution.failureType === "OUT_OF_BOUNDS" || this.execution.failureType === "MECHANISM"
+        ? "crash"
+        : "incomplete";
     const duration = Math.min(16_000, Math.max(10_000, traceDuration(this.execution.trace) + 1_000));
-    this.setPhase(phase, duration, phase === "EXECUTE" ? "execution-started" : "reexecution-started");
+    this.setPhase("EXECUTE", duration, "execution-started");
   }
 
   private finishExecution(): void {
@@ -610,79 +534,7 @@ export class GameRoom {
       return;
     }
     if (this.phase === "EXECUTE") this.firstRunSuccess = this.execution.success;
-    if (this.execution.success) {
-      if (this.debugAttempts > 0) this.hooks.onDailyIncrement({ bugsFixed: 1 });
-      this.enterResult(true);
-      return;
-    }
-
-    if (this.phase === "REEXECUTE" && this.debugAttempts >= 1) {
-      if (this.debugAttempts === 1 && this.collaborationEnergy >= 3) {
-        this.debugCandidates = debugCandidateSlots(this.program, this.execution);
-        this.selectedDebugSlot = this.debugCandidates[0];
-        this.debugPatchVotes.clear();
-        this.setPhase("DEBUG_PATCH", this.timings.emergencyPatchMs, "emergency-patch-unlocked");
-      } else this.enterResult(false);
-      return;
-    }
-
-    this.debugCandidates = debugCandidateSlots(this.program, this.execution);
-    this.debugLineVotes.clear();
-    this.selectedDebugSlot = undefined;
-    this.setPhase("DEBUG_SELECT", this.timings.debugSelectMs, "debug-select-opened");
-  }
-
-  private lockDebugLine(now: number): void {
-    const counts = new Map<string, number>();
-    for (const slotId of this.debugLineVotes.values()) counts.set(slotId, (counts.get(slotId) ?? 0) + 1);
-    const highest = Math.max(0, ...counts.values());
-    const tied = this.debugCandidates.filter((slotId) => (counts.get(slotId) ?? 0) === highest);
-    this.selectedDebugSlot = seededWinner(tied, `${this.roundId}:debug:${this.debugAttempts}`) ?? this.debugCandidates[0];
-    if (!this.selectedDebugSlot) {
-      this.enterResult(false);
-      return;
-    }
-    this.debugPatchVotes.clear();
-    this.phase = "DEBUG_PATCH";
-    this.phaseStartedAt = now;
-    this.phaseEndsAt = now + this.timings.debugPatchMs;
-    this.emit("debug-line-locked", true);
-  }
-
-  private lockDebugPatch(_now: number): void {
-    const slot = this.debugPatchSlot();
-    if (!slot || !this.selectedDebugSlot) {
-      this.enterResult(false);
-      return;
-    }
-    const tally = this.tallyValues(slot.options, this.debugPatchVotes.values());
-    const winner = this.pickWinner(tally, `${this.roundId}:patch:${this.debugAttempts}`)
-      ?? this.map.standardChoices[this.selectedDebugSlot]
-      ?? slot.options[0];
-    if (winner === undefined) {
-      this.enterResult(false);
-      return;
-    }
-    this.lockedChoices[this.selectedDebugSlot] = winner;
-    this.debugAttempts += 1;
-    const compiled = compileProgram(this.map.template, this.lockedChoices, this.map.maxSteps);
-    if (!compiled.ok) {
-      this.resultMessage = compiled.issues[0]?.message ?? "补丁无法编译";
-      this.enterResult(false);
-      return;
-    }
-    this.program = compiled.program;
-    this.execution = executeProgram(this.map, this.program);
-    this.enterExecution("REEXECUTE");
-  }
-
-  private debugPatchSlot(): ProgramSlot | undefined {
-    if (!this.selectedDebugSlot) return undefined;
-    const slot = collectSlots(this.map.template).find((candidate) => candidate.slotId === this.selectedDebugSlot);
-    if (!slot) return undefined;
-    const current = this.lockedChoices[slot.slotId];
-    const alternatives = slot.options.filter((option) => current === undefined || !choicesEqual(option, current));
-    return { ...slot, options: alternatives.length > 0 ? alternatives : slot.options };
+    this.enterResult(this.execution.success);
   }
 
   private enterResult(success: boolean): void {
@@ -691,8 +543,7 @@ export class GameRoom {
       ? this.highParticipationWindows / this.totalParticipationWindows
       : 0;
     const badges: RoundScore["badges"] = [];
-    if (success && this.debugAttempts === 0) badges.push("FIRST_RUN");
-    if (success && this.debugAttempts > 0) badges.push("BUG_HUNTER");
+    if (success) badges.push("FIRST_RUN");
     if (this.allCommitted && this.totalParticipationWindows > 0) badges.push("ALL_COMMITTED");
     if (success && execution && execution.executedActionCount <= this.map.parSteps) badges.push("SHORTEST_PROGRAM");
     this.score = {
@@ -702,18 +553,11 @@ export class GameRoom {
       badges,
     };
     this.resultMessage = success
-      ? this.debugAttempts > 0 ? "调试通过，机器人已安全抵达！" : "编译成功，机器人一次抵达！"
-      : this.resultMessage ?? "本轮未通过，随后展示标准解。";
-    if (!success) {
-      const compiledSolution = compileProgram(this.map.template, this.map.standardChoices, this.map.maxSteps);
-      if (compiledSolution.ok) {
-        this.solutionChoices = { ...this.map.standardChoices };
-        this.solutionExecution = executeProgram(this.map, compiledSolution.program);
-      }
-    }
+      ? "编译成功，机器人已抵达！"
+      : this.resultMessage ?? "本轮未通过。";
     this.setPhase("RESULT", this.timings.resultMs, "round-result");
 
-    if (!this.roundRecorded && (this.mode !== "CORE_BATTLE" || !success || this.showcaseStage === coreBattleMaps().length - 1)) {
+    if (!this.roundRecorded) {
       this.roundRecorded = true;
       const endedAt = Date.now();
       this.history.push({
@@ -735,7 +579,6 @@ export class GameRoom {
         connectedPlayers: this.maxConnectedPlayers,
         firstRunSuccess: this.firstRunSuccess,
         finalSuccess: success,
-        debugAttempts: this.debugAttempts,
         choices: Object.fromEntries(Object.entries(this.lockedChoices).map(([key, value]) => [key, value])),
         score: this.score,
       });
@@ -747,17 +590,6 @@ export class GameRoom {
   }
 
   private afterResult(): void {
-    if (this.mode === "CORE_BATTLE" && this.execution?.success) {
-      const maps = coreBattleMaps();
-      if (this.showcaseStage < maps.length - 1) {
-        this.showcaseStage += 1;
-        const nextMap = maps[this.showcaseStage];
-        if (nextMap) {
-          this.beginRound(nextMap, "CORE_BATTLE", false);
-          return;
-        }
-      }
-    }
     this.setPhase("RESET", this.timings.resetMs, "result-complete");
   }
 
@@ -793,17 +625,6 @@ export class GameRoom {
       return tally;
     }
 
-    if (this.phase === "DEBUG_PATCH") {
-      const slot = this.debugPatchSlot();
-      if (!slot) return undefined;
-      return {
-        slotId: slot.slotId,
-        options: this.tallyValues(slot.options, this.debugPatchVotes.values()),
-        eligibleCount: this.connectedPlayers,
-        submittedCount: this.debugPatchVotes.size,
-        locked: false,
-      };
-    }
     return undefined;
   }
 

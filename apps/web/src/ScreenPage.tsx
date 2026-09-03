@@ -40,7 +40,7 @@ export function ScreenPage() {
         </section>
         <aside className="screen-side-panel">
           <div className="qr-card">{realtime.settings?.qrMode !== "hidden" && <img key={realtime.settings?.qrMode} src={`/api/qr.png?mode=${realtime.settings?.qrMode ?? "public"}`} alt="扫码加入游戏" />}<div><strong>{realtime.settings?.qrMode === "hidden" ? "当前为只演示模式" : "扫码提交下一条指令"}</strong><span>{realtime.settings?.qrMode === "local" ? "请先连接现场 Wi-Fi" : "无需下载 · 无需注册"}</span></div></div>
-          <section className="screen-program"><div className="panel-heading"><div><p className="eyebrow">共享程序</p><h2>{state.phase === "DEBUG_SELECT" ? "请选择可疑代码行" : "全场正在编译"}</h2></div></div><ProgramPanel state={state} now={correctedNow} {...(state.phase === "DEBUG_SELECT" ? { selectable: state.debugCandidateSlots } : {})} /></section>
+          <section className="screen-program"><div className="panel-heading"><div><p className="eyebrow">共享程序</p><h2>全场正在编译</h2></div></div><ProgramPanel state={state} now={correctedNow} /></section>
           {state.phase === "RESULT" && <div className={`screen-result ${state.score?.missionStar ? "screen-result--success" : ""}`}><h2>{state.resultMessage}</h2><p>{state.map.knowledgePoint}</p>{state.predictionOutcome && <p>有 {state.predictions[state.predictionOutcome]} 位同学预测正确</p>}<div className="screen-stars"><span className={state.score?.missionStar ? "on" : ""}>★ 任务</span><span className={state.score?.algorithmStar ? "on" : ""}>★ 算法</span><span className={state.score?.collaborationStar ? "on" : ""}>★ 协作</span></div></div>}
           {realtime.daily && <div className="screen-daily"><strong>{realtime.daily.participantSessions}</strong> 人次共同提交了 <strong>{realtime.daily.commandsSubmitted}</strong> 条指令</div>}
         </aside>

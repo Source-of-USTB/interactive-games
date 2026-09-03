@@ -7,8 +7,6 @@ export interface SessionView {
   observerOnly?: boolean;
   selectedVote?: string | number;
   selectedPrediction?: "success" | "crash" | "incomplete";
-  selectedDebugLine?: string;
-  selectedDebugPatch?: string | number;
 }
 
 export interface DisplaySettings {

@@ -13,7 +13,6 @@ export interface PersistedRound {
   connectedPlayers: number;
   firstRunSuccess: boolean;
   finalSuccess: boolean;
-  debugAttempts: number;
   choices: Record<string, string | number>;
   score: RoundScore;
 }
@@ -42,7 +41,6 @@ export class GameDatabase {
         connected_players INTEGER NOT NULL,
         first_run_success INTEGER NOT NULL,
         final_success INTEGER NOT NULL,
-        debug_attempts INTEGER NOT NULL,
         choices_json TEXT NOT NULL,
         score_json TEXT NOT NULL
       );
@@ -83,8 +81,8 @@ export class GameDatabase {
     this.db.prepare(`
       INSERT OR REPLACE INTO rounds (
         round_id, room_id, map_id, mode, started_at, ended_at, connected_players,
-        first_run_success, final_success, debug_attempts, choices_json, score_json
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        first_run_success, final_success, choices_json, score_json
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       round.roundId,
       round.roomId,
@@ -95,7 +93,6 @@ export class GameDatabase {
       round.connectedPlayers,
       round.firstRunSuccess ? 1 : 0,
       round.finalSuccess ? 1 : 0,
-      round.debugAttempts,
       JSON.stringify(round.choices),
       JSON.stringify(round.score),
     );
@@ -151,7 +148,6 @@ export class GameDatabase {
       connectedPlayers: Number(row.connected_players),
       firstRunSuccess: Boolean(row.first_run_success),
       finalSuccess: Boolean(row.final_success),
-      debugAttempts: Number(row.debug_attempts),
       choices: JSON.parse(String(row.choices_json)) as Record<string, string | number>,
       score: JSON.parse(String(row.score_json)) as RoundScore,
     }));

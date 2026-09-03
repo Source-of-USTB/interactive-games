@@ -9,9 +9,6 @@ const fastTimings = {
   revealMs: 1,
   compileMs: 1,
   predictMs: 1,
-  debugSelectMs: 1_100,
-  debugPatchMs: 1_100,
-  emergencyPatchMs: 1_100,
   resultMs: 1,
   resetMs: 1,
 };
@@ -56,55 +53,4 @@ describe("GameRoom", () => {
     expect(checkpoints.length).toBeGreaterThan(5);
   });
 
-  it("runs Bug Clinic through line selection and a successful patch", () => {
-    const room = new GameRoom("BUG", {}, fastTimings);
-    const map = getMapById("boot-01-first-route")!;
-    room.connectPlayer("p1");
-    room.start({ mode: "BUG_CLINIC", mapId: map.id });
-    advance(room); // briefing
-    advance(room); // compile buggy
-    advance(room); // predict
-    advance(room); // execute
-    advance(room); // debug select
-    expect(room.currentPhase).toBe("DEBUG_SELECT");
-    const candidate = room.snapshot().debugCandidateSlots.find((slotId) => map.buggyChoices[slotId] !== map.standardChoices[slotId]);
-    expect(candidate).toBeDefined();
-    expect(room.castDebugLine("p1", candidate!)).toEqual({ ok: true });
-    advance(room); // patch
-    const selected = room.snapshot().selectedDebugSlot!;
-    expect(selected).toBe(candidate);
-    expect(room.castDebugPatch("p1", selected, map.standardChoices[selected]!)).toEqual({ ok: true });
-    advance(room); // reexecute
-    advance(room); // result
-    expect(room.snapshot().execution?.success).toBe(true);
-    expect(room.snapshot().score?.badges).toContain("BUG_HUNTER");
-  });
-
-  it("publishes a successful teaching replay after the available patch fails", () => {
-    const room = new GameRoom("TEACH", {}, fastTimings);
-    const map = getMapById("boot-01-first-route")!;
-    room.connectPlayer("p1");
-    room.start({ mode: "BUG_CLINIC", mapId: map.id });
-    advance(room);
-    advance(room);
-    advance(room);
-    advance(room);
-    advance(room);
-    const brokenSlot = room.snapshot().debugCandidateSlots.find((slotId) => map.buggyChoices[slotId] !== map.standardChoices[slotId])!;
-    room.castDebugLine("p1", brokenSlot);
-    advance(room);
-    const selected = room.snapshot().selectedDebugSlot!;
-    const deliberatelyWrong = map.template
-      .flatMap((node) => node.kind === "choice" && node.slotId === selected ? node.allowed : [])
-      .find((value) => value !== map.standardChoices[selected] && value !== map.buggyChoices[selected]);
-    expect(deliberatelyWrong).toBeDefined();
-    room.castDebugPatch("p1", selected, deliberatelyWrong!);
-    advance(room);
-    advance(room);
-    const result = room.snapshot();
-    expect(result.phase).toBe("RESULT");
-    expect(result.score?.missionStar).toBe(false);
-    expect(result.solutionChoices).toEqual(map.standardChoices);
-    expect(result.solutionTrace?.at(-1)?.type).toBe("SUCCESS");
-  });
 });

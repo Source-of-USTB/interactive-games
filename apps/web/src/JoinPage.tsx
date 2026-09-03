@@ -13,9 +13,6 @@ import {
 } from "./game-ui.js";
 
 function currentSlot(state: PublicRoundState): ProgramSlot | undefined {
-  if (state.phase === "DEBUG_PATCH" && state.selectedDebugSlot) {
-    return state.slots.find((slot) => slot.slotId === state.selectedDebugSlot);
-  }
   return state.slots[state.currentSlotIndex];
 }
 
@@ -56,8 +53,7 @@ export function JoinPage() {
   const slot = currentSlot(state);
   const voteOptions = state.currentTally?.options.map((option) => option.value) ?? slot?.options ?? [];
   const isVoteOpen = state.phase === "AUTHORING" && !state.currentTally?.locked && !realtime.session.observerOnly;
-  const isPatchOpen = state.phase === "DEBUG_PATCH" && !realtime.session.observerOnly;
-  const selectedValue = isPatchOpen ? realtime.session.selectedDebugPatch : realtime.session.selectedVote;
+  const selectedValue = realtime.session.selectedVote;
 
   return (
     <main className="join-shell">
@@ -84,14 +80,14 @@ export function JoinPage() {
 
       {realtime.session.observerOnly && <section className="waiting-card"><h2>当前为只看模式</h2><p>现场操作位已达安全上限，你仍可同步观看本轮。</p></section>}
 
-      {(state.phase === "BRIEFING" || state.phase === "EXECUTE" || state.phase === "REEXECUTE" || state.phase === "RESULT") && (
+      {(state.phase === "BRIEFING" || state.phase === "EXECUTE" || state.phase === "RESULT") && (
         <MapBoard state={state} now={correctedNow} compact />
       )}
 
-      {(isVoteOpen || isPatchOpen) && slot && (
+      {isVoteOpen && slot && (
         <section className="action-card" aria-live="polite">
-          <p className="step-kicker">{isPatchOpen ? `修复第 ${slot.line} 行` : `程序第 ${slot.line} 行`}</p>
-          <h2>{isPatchOpen ? "换成哪条指令？" : slot.prompt}</h2>
+          <p className="step-kicker">程序第 {slot.line} 行</p>
+          <h2>{slot.prompt}</h2>
           <div className="choice-grid">
             {voteOptions.map((value) => {
               const selected = selectedValue === value;
@@ -103,7 +99,7 @@ export function JoinPage() {
                   disabled={busy || realtime.status !== "open"}
                   aria-pressed={selected}
                   onClick={() => void submit({
-                    type: isPatchOpen ? "debug.patch.cast" : "vote.cast",
+                    type: "vote.cast",
                     slotId: slot.slotId,
                     value,
                   })}
@@ -124,21 +120,6 @@ export function JoinPage() {
           <span className="result-glyph">{state.currentTally.winner !== undefined ? choiceGlyph(state.currentTally.winner) : "…"}</span>
           <h2>{state.currentTally.winner !== undefined ? `${choiceLabel(state.currentTally.winner)} 写入程序` : "正在锁定结果"}</h2>
           <p>{state.currentTally.submittedCount} 张有效选票</p>
-        </section>
-      )}
-
-      {state.phase === "DEBUG_SELECT" && (
-        <section className="action-card">
-          <p className="step-kicker">检测到 Bug</p>
-          <h2>哪一行最可疑？</h2>
-          <ProgramPanel
-            state={state}
-            now={correctedNow}
-            selectable={state.debugCandidateSlots}
-            {...(realtime.session.selectedDebugLine ? { selected: realtime.session.selectedDebugLine } : {})}
-            onSelect={(slotId) => void submit({ type: "debug.line.cast", slotId })}
-          />
-          {realtime.session.selectedDebugLine && <p className="selection-confirmation">已选择一行，可在锁票前改选</p>}
         </section>
       )}
 
@@ -163,7 +144,7 @@ export function JoinPage() {
         </section>
       )}
 
-      {(state.phase === "COMPILE" || state.phase === "EXECUTE" || state.phase === "REEXECUTE") && (
+      {(state.phase === "COMPILE" || state.phase === "EXECUTE") && (
         <section className="program-card">
           <p className="step-kicker">共享程序</p>
           <ProgramPanel state={state} now={correctedNow} />
@@ -231,7 +212,6 @@ function ResultCard({ state }: { state: PublicRoundState }) {
       {score && score.badges.length > 0 && <p className="badges">{score.badges.map(badgeLabel).join(" · ")}</p>}
       {state.predictionOutcome && <p className="prediction-result">运行前有 <strong>{state.predictions[state.predictionOutcome]}</strong> 位同学预测正确</p>}
       <p className="knowledge-point">{state.map.knowledgePoint}</p>
-      {!score?.missionStar && state.solutionTrace && <p className="look-up">请抬头看大屏：正在回放一个标准解</p>}
     </section>
   );
 }
@@ -239,7 +219,6 @@ function ResultCard({ state }: { state: PublicRoundState }) {
 function badgeLabel(value: string): string {
   return {
     FIRST_RUN: "一次过",
-    BUG_HUNTER: "Bug 猎人",
     ALL_COMMITTED: "全员提交",
     SHORTEST_PROGRAM: "最短程序",
   }[value] ?? value;

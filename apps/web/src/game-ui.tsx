@@ -29,9 +29,6 @@ export const PHASE_LABELS: Record<RoundPhase, string> = {
   COMPILE: "正在编译",
   PREDICT: "预测结果",
   EXECUTE: "程序运行",
-  DEBUG_SELECT: "定位 Bug",
-  DEBUG_PATCH: "提交补丁",
-  REEXECUTE: "重新运行",
   RESULT: "本轮结算",
   RESET: "切换关卡",
   PAUSED: "现场暂停",
@@ -82,12 +79,9 @@ function directionGlyph(direction: RobotState["direction"]): string {
 }
 
 function displayRobot(state: PublicRoundState, now: number): RobotState {
-  const teachingReplay = state.phase === "RESULT" && !state.score?.missionStar && Boolean(state.solutionTrace?.length)
-    && now - state.phaseStartedAt >= 2_000;
-  const trace = teachingReplay ? state.solutionTrace ?? [] : state.trace;
-  if ((state.phase === "EXECUTE" || state.phase === "REEXECUTE" || teachingReplay) && trace.length > 0) {
-    const speed = teachingReplay ? Math.max(1, trace.reduce((sum, event) => sum + event.durationMs, 0) / 6_000) : 1;
-    const elapsed = Math.max(0, now - state.phaseStartedAt - (teachingReplay ? 2_000 : 0)) * speed;
+  const trace = state.trace;
+  if (state.phase === "EXECUTE" && trace.length > 0) {
+    const elapsed = Math.max(0, now - state.phaseStartedAt);
     let cursor = 0;
     let robot = state.map.start;
     for (const event of trace) {
@@ -149,12 +143,9 @@ export function MapBoard({ state, now, compact = false }: { state: PublicRoundSt
 }
 
 function currentTraceLine(state: PublicRoundState, now: number): number | undefined {
-  const teachingReplay = state.phase === "RESULT" && !state.score?.missionStar && Boolean(state.solutionTrace?.length)
-    && now - state.phaseStartedAt >= 2_000;
-  if (state.phase !== "EXECUTE" && state.phase !== "REEXECUTE" && !teachingReplay) return undefined;
-  const trace = teachingReplay ? state.solutionTrace ?? [] : state.trace;
-  const speed = teachingReplay ? Math.max(1, trace.reduce((sum, event) => sum + event.durationMs, 0) / 6_000) : 1;
-  const elapsed = Math.max(0, now - state.phaseStartedAt - (teachingReplay ? 2_000 : 0)) * speed;
+  if (state.phase !== "EXECUTE") return undefined;
+  const trace = state.trace;
+  const elapsed = Math.max(0, now - state.phaseStartedAt);
   let cursor = 0;
   for (const event of trace) {
     cursor += event.durationMs;
@@ -171,9 +162,7 @@ export function ProgramPanel({ state, now, selectable, selected, onSelect }: {
   onSelect?: (slotId: string) => void;
 }) {
   const currentLine = currentTraceLine(state, now);
-  const teachingReplay = state.phase === "RESULT" && !state.score?.missionStar && Boolean(state.solutionChoices)
-    && now - state.phaseStartedAt >= 2_000;
-  const visibleChoices = teachingReplay ? state.solutionChoices ?? state.lockedChoices : state.lockedChoices;
+  const visibleChoices = state.lockedChoices;
   return (
     <div className="program-panel">
       {state.slots.map((slot) => {

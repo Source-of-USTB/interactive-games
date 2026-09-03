@@ -39,9 +39,6 @@ export function AdminPage() {
     revealMs: 3,
     compileMs: 3,
     predictMs: 10,
-    debugSelectMs: 10,
-    debugPatchMs: 10,
-    emergencyPatchMs: 10,
     resultMs: 10,
     resetMs: 3,
   });
@@ -187,7 +184,6 @@ export function AdminPage() {
             <div><dt>模式</dt><dd>{modeLabel(state.mode)}</dd></div>
             <div><dt>轮次</dt><dd>{state.roundId.slice(0, 8)}</dd></div>
             <div><dt>协作能量</dt><dd>{state.collaborationEnergy} / 3</dd></div>
-            <div><dt>调试次数</dt><dd>{state.debugAttempts}</dd></div>
             <div><dt>剩余时间</dt><dd>{Math.max(0, Math.ceil((state.phaseEndsAt - correctedNow) / 1000))} 秒</dd></div>
           </dl>}
           <div className="admin-button-grid">
@@ -209,8 +205,6 @@ export function AdminPage() {
               setSelectedMap(maps.find((map) => map.modes.includes(next))?.id ?? "");
             }}>
               <option value="COCODE">全场共编</option>
-              <option value="BUG_CLINIC">Bug 急诊室</option>
-              <option value="LOGIC_LAB">逻辑实验室</option>
             </select>
           </label>
           <label className="field-label">关卡
@@ -219,7 +213,6 @@ export function AdminPage() {
             </select>
           </label>
           <button className="primary-button" type="button" onClick={() => void command("start", { mode: selectedMode, mapId: selectedMap })}>启动指定关卡</button>
-          <button className="secondary-button" type="button" onClick={() => void command("core-battle")}>启动整点核心战</button>
         </section>
 
         <section className="admin-panel">
@@ -290,7 +283,7 @@ function HealthCard({ label, value, tone }: { label: string; value: string; tone
 }
 
 function modeLabel(mode: GameMode): string {
-  return { COCODE: "全场共编", BUG_CLINIC: "Bug 急诊室", LOGIC_LAB: "逻辑实验室", CORE_BATTLE: "整点核心战" }[mode];
+  return { COCODE: "全场共编" }[mode];
 }
 
 const TIMING_FIELDS: Array<[string, string]> = [
@@ -300,9 +293,6 @@ const TIMING_FIELDS: Array<[string, string]> = [
   ["revealMs", "亮票展示"],
   ["compileMs", "编译过程"],
   ["predictMs", "结果预测"],
-  ["debugSelectMs", "定位 Bug"],
-  ["debugPatchMs", "提交补丁"],
-  ["emergencyPatchMs", "紧急补丁"],
   ["resultMs", "结算展示"],
   ["resetMs", "切换关卡"],
 ];

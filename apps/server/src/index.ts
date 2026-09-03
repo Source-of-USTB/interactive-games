@@ -65,9 +65,6 @@ interface ClientMessage {
   revealMs?: number;
   compileMs?: number;
   predictMs?: number;
-  debugSelectMs?: number;
-  debugPatchMs?: number;
-  emergencyPatchMs?: number;
   resultMs?: number;
   resetMs?: number;
   sequence?: number;
@@ -201,12 +198,12 @@ app.get("/api/config", async (request, reply) => {
 app.get("/api/stats/export.csv", async (request, reply) => {
   const token = request.headers.authorization?.replace(/^Bearer\s+/i, "");
   if (!secureTokenMatches(config.adminToken, token)) return reply.code(401).send({ error: "未授权" });
-  const header = ["round_id", "room_id", "map_id", "mode", "started_at", "ended_at", "connected_players", "first_run_success", "final_success", "debug_attempts", "choices_json", "score_json"];
+  const header = ["round_id", "room_id", "map_id", "mode", "started_at", "ended_at", "connected_players", "first_run_success", "final_success", "choices_json", "score_json"];
   const escape = (value: unknown): string => `"${String(value).replaceAll('"', '""')}"`;
   const rows = database.exportRounds().map((round) => [
     round.roundId, round.roomId, round.mapId, round.mode, new Date(round.startedAt).toISOString(),
     new Date(round.endedAt).toISOString(), round.connectedPlayers, round.firstRunSuccess,
-    round.finalSuccess, round.debugAttempts, JSON.stringify(round.choices), JSON.stringify(round.score),
+    round.finalSuccess, JSON.stringify(round.choices), JSON.stringify(round.score),
   ].map(escape).join(","));
   const csv = `\uFEFF${header.join(",")}\n${rows.join("\n")}\n`;
   return reply.type("text/csv; charset=utf-8").header("Content-Disposition", "attachment; filename=codegame-rounds.csv").send(csv);
@@ -380,10 +377,6 @@ function handleMessage(client: ConnectedClient, message: ClientMessage): void {
       result = room.castVote(client.sessionId, message.slotId, message.value);
     } else if (message.type === "prediction.cast" && message.prediction) {
       result = room.castPrediction(client.sessionId, message.prediction);
-    } else if (message.type === "debug.line.cast" && message.slotId) {
-      result = room.castDebugLine(client.sessionId, message.slotId);
-    } else if (message.type === "debug.patch.cast" && message.slotId && message.value !== undefined) {
-      result = room.castDebugPatch(client.sessionId, message.slotId, message.value);
     }
     send(client, result.ok ? "request.ack" : "request.error", result.ok ? { ok: true } : { error: result.reason }, requestId);
     return;
@@ -392,7 +385,6 @@ function handleMessage(client: ConnectedClient, message: ClientMessage): void {
   if (client.role === "admin" && message.type === "admin.command") {
     try {
       if (message.command === "start") room.start({ ...(message.mapId ? { mapId: message.mapId } : {}), ...(message.mode ? { mode: message.mode } : {}) });
-      else if (message.command === "core-battle") room.start({ mode: "CORE_BATTLE" });
       else if (message.command === "pause") room.pause();
       else if (message.command === "resume") room.resume();
       else if (message.command === "reset") room.reset({ ...(message.mapId ? { mapId: message.mapId } : {}), ...(message.mode ? { mode: message.mode } : {}) });
@@ -405,9 +397,6 @@ function handleMessage(client: ConnectedClient, message: ClientMessage): void {
         if (message.revealMs !== undefined) timings.revealMs = message.revealMs;
         if (message.compileMs !== undefined) timings.compileMs = message.compileMs;
         if (message.predictMs !== undefined) timings.predictMs = message.predictMs;
-        if (message.debugSelectMs !== undefined) timings.debugSelectMs = message.debugSelectMs;
-        if (message.debugPatchMs !== undefined) timings.debugPatchMs = message.debugPatchMs;
-        if (message.emergencyPatchMs !== undefined) timings.emergencyPatchMs = message.emergencyPatchMs;
         if (message.resultMs !== undefined) timings.resultMs = message.resultMs;
         if (message.resetMs !== undefined) timings.resetMs = message.resetMs;
         room.updateTimings(timings);

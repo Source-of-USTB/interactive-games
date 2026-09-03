@@ -122,7 +122,7 @@ export type MapTile =
   | DirectionTile
   | ColorTile;
 
-export type GameMode = "COCODE" | "BUG_CLINIC" | "LOGIC_LAB" | "CORE_BATTLE";
+export type GameMode = "COCODE";
 
 export interface GameMap {
   id: string;
@@ -137,7 +137,6 @@ export interface GameMap {
   tiles: MapTile[];
   template: ProgramTemplateNode[];
   standardChoices: Record<string, ChoiceValue>;
-  buggyChoices: Record<string, ChoiceValue>;
   maxSteps: number;
   parSteps: number;
   knowledgePoint: string;
@@ -211,9 +210,6 @@ export type RoundPhase =
   | "COMPILE"
   | "PREDICT"
   | "EXECUTE"
-  | "DEBUG_SELECT"
-  | "DEBUG_PATCH"
-  | "REEXECUTE"
   | "RESULT"
   | "RESET"
   | "PAUSED";
@@ -231,7 +227,7 @@ export interface RoundScore {
   missionStar: boolean;
   algorithmStar: boolean;
   collaborationStar: boolean;
-  badges: Array<"FIRST_RUN" | "BUG_HUNTER" | "ALL_COMMITTED" | "SHORTEST_PROGRAM">;
+  badges: Array<"FIRST_RUN" | "ALL_COMMITTED" | "SHORTEST_PROGRAM">;
 }
 
 export interface PublicMap {
@@ -267,12 +263,6 @@ export interface PublicRoundState {
   collaborationEnergy: number;
   trace: TraceEvent[];
   execution?: ExecutionResult;
-  /** A six-second teaching replay after an unsuccessful result. */
-  solutionTrace?: TraceEvent[];
-  solutionChoices?: Record<string, ChoiceValue>;
-  debugCandidateSlots: string[];
-  selectedDebugSlot?: string;
-  debugAttempts: number;
   predictions: { success: number; crash: number; incomplete: number };
   predictionOutcome?: "success" | "crash" | "incomplete";
   score?: RoundScore;
