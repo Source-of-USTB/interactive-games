@@ -54,10 +54,11 @@ export function AdminPage() {
   const [demoMode, setDemoMode] = useState(false);
   const now = useClock(1000);
 
-  const clearAdminToken = (): void => {
+  const clearAdminToken = (reason?: string): void => {
     localStorage.removeItem("codegame.admin.token");
     setToken("");
     setDraftToken("");
+    setLoginError(reason);
   };
 
   const enter = async (): Promise<void> => {
@@ -76,21 +77,22 @@ export function AdminPage() {
   };
 
   useEffect(() => {
-    if (realtime.authInvalid) clearAdminToken();
+    if (realtime.authInvalid) clearAdminToken("管理密钥已失效，请重新输入");
   }, [realtime.authInvalid]);
 
   useEffect(() => {
     if (!token) return;
     fetch("/api/maps", { headers: { Authorization: `Bearer ${token}` } })
       .then(async (response) => {
-        if (response.status === 401) {
-          clearAdminToken();
-          throw new Error("管理密钥无效");
+        if (response.status === 401 || response.status === 403) {
+          clearAdminToken("管理密钥无效");
+          return;
         }
         if (!response.ok) throw new Error("地图读取失败");
         return response.json() as Promise<MapSummary[]>;
       })
       .then((value) => {
+        if (!value) return;
         setMaps(value);
         setSelectedMap(value[0]?.id ?? "");
       })
@@ -278,7 +280,7 @@ export function AdminPage() {
       </div>
 
       {message && <div className="toast" onClick={() => setMessage(undefined)}>{message}</div>}
-      <button type="button" className="logout-button" onClick={clearAdminToken}>退出管理端</button>
+      <button type="button" className="logout-button" onClick={() => clearAdminToken()}>退出管理端</button>
     </main>
   );
 }
