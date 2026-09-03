@@ -26,6 +26,8 @@ interface Health {
 export function AdminPage() {
   const [token, setToken] = useState(() => localStorage.getItem("codegame.admin.token") ?? "");
   const [draftToken, setDraftToken] = useState(token);
+  const [verifying, setVerifying] = useState(false);
+  const [loginError, setLoginError] = useState<string>();
   const realtime = useRealtime({ role: "admin", token, enabled: Boolean(token) });
   const [maps, setMaps] = useState<MapSummary[]>([]);
   const [selectedMap, setSelectedMap] = useState("");
@@ -56,6 +58,21 @@ export function AdminPage() {
     localStorage.removeItem("codegame.admin.token");
     setToken("");
     setDraftToken("");
+  };
+
+  const enter = async (): Promise<void> => {
+    setVerifying(true);
+    try {
+      const response = await fetch("/api/maps", { headers: { Authorization: `Bearer ${draftToken}` } });
+      if (response.status === 401 || response.status === 403) throw new Error("管理密钥无效");
+      if (!response.ok) throw new Error("无法连接管理服务");
+      localStorage.setItem("codegame.admin.token", draftToken);
+      setToken(draftToken);
+    } catch (error) {
+      setLoginError(error instanceof Error ? error.message : "验证失败");
+    } finally {
+      setVerifying(false);
+    }
   };
 
   useEffect(() => {
@@ -130,11 +147,14 @@ export function AdminPage() {
           <p className="eyebrow">本地管理控制台</p>
           <h1>输入现场管理密钥</h1>
           <p>管理页面不会与玩家二维码共享入口。</p>
-          <input type="password" value={draftToken} onChange={(event) => setDraftToken(event.target.value)} placeholder="ADMIN_TOKEN" />
-          <button className="primary-button" type="button" onClick={() => {
-            localStorage.setItem("codegame.admin.token", draftToken);
-            setToken(draftToken);
-          }}>进入控制台</button>
+          <input type="password" value={draftToken} onChange={(event) => {
+            setDraftToken(event.target.value);
+            setLoginError(undefined);
+          }} placeholder="ADMIN_TOKEN" autoFocus />
+          {loginError && <p className="admin-login-error">{loginError}</p>}
+          <button className="primary-button" type="button" disabled={verifying || draftToken.length === 0} onClick={() => void enter()}>
+            {verifying ? "验证中…" : "进入控制台"}
+          </button>
         </section>
       </main>
     );

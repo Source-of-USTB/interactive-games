@@ -143,6 +143,8 @@ h1 { letter-spacing: -0.035em; }
 .tutorial-steps b { display: grid; place-items: center; width: 1.8rem; height: 1.8rem; border-radius: 50%; color: #06101d; background: var(--cyan); }
 .primary-button, .secondary-button { width: 100%; min-height: 3.25rem; padding: .7rem 1rem; border-radius: .8rem; font-weight: 900; cursor: pointer; }
 .primary-button { border: 0; color: #041019; background: linear-gradient(135deg, var(--green), var(--cyan)); }
+.primary-button:disabled { opacity: .55; cursor: not-allowed; }
+.admin-login-error { margin: 0 0 .7rem; color: #ff718e; font-size: .85rem; font-weight: 800; }
 .secondary-button { margin-top: .65rem; border: 1px solid var(--line); background: #142d44; }
 .status-page, .screen-loading { display: grid; place-items: center; align-content: center; min-height: 100dvh; padding: 2rem; text-align: center; }
 .status-page p { color: var(--muted); }
