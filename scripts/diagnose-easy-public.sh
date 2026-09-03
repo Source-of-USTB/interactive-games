@@ -3,6 +3,8 @@ set -u
 
 project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$project_dir"
+source scripts/logging.sh
+exec > >(colorize_output) 2>&1
 
 port="${PORT:-}"
 if [[ -f .env ]]; then
@@ -10,52 +12,57 @@ if [[ -f .env ]]; then
   port="${configured_port:-$port}"
 fi
 port="${port:-3000}"
-tunnel_log="$project_dir/runtime/localhost-run.log"
 
-echo "== 进程 =="
+echo "== Processes =="
 process_rows="$(pgrep -af '[s]sh.*localhost\.run|[n]ode dist/index\.js|[n]ode scripts/player-gateway\.mjs|[g]odot.*apps/godot' 2>/dev/null || true)"
 if [[ -n "$process_rows" ]]; then
   echo "$process_rows"
 else
-  echo "未发现 localhost.run、游戏服务或 Godot 进程。"
+  echo "No localhost.run tunnel, game server, or Godot process found."
 fi
 
 echo
-echo "== 玩家公网网关 =="
-if curl --noproxy '*' --silent --show-error --fail --max-time 3 "http://127.0.0.1:3100/api/health"; then
+echo "== Player gateway =="
+gateway_port="${PUBLIC_GATEWAY_PORT:-3100}"
+if [[ -f .env ]]; then
+  configured_gateway_port="$(sed -n 's/^PUBLIC_GATEWAY_PORT=//p' .env | tail -n 1)"
+  gateway_port="${configured_gateway_port:-$gateway_port}"
+fi
+if curl --noproxy '*' --silent --show-error --fail --max-time 3 "http://127.0.0.1:${gateway_port}/api/health"; then
   echo
-  echo "玩家网关可访问，只转发报名和投票所需路由。"
+  echo "Player gateway is reachable."
 else
-  echo "玩家网关无法访问。"
+  echo "Player gateway is not reachable."
 fi
 
 echo
-echo "== 本机服务 =="
+echo "== Local server =="
 if curl --noproxy '*' --silent --show-error --fail --max-time 3 "http://127.0.0.1:${port}/api/health"; then
   echo
-  echo "本机 ${port} 端口正常。"
+  echo "Local port ${port} is healthy."
 else
-  echo "本机 ${port} 端口无法访问。"
+  echo "Local port ${port} is not reachable."
 fi
 
 echo
-echo "== localhost.run 日志 =="
-if [[ -f "$tunnel_log" ]]; then
+echo "== localhost.run logs =="
+tunnel_log="$(find "$project_dir/runtime/logs" -mindepth 2 -maxdepth 2 -type f -name 'localhost-run.log' -printf '%T@ %p\n' 2>/dev/null | sort -nr | cut -d' ' -f2- | head -n 1)"
+if [[ -n "$tunnel_log" && -f "$tunnel_log" ]]; then
   public_origin="$(
     rg -o 'https://[A-Za-z0-9][A-Za-z0-9.-]*\.lhr\.life' "$tunnel_log" \
       | head -n 1 \
       || true
   )"
   if [[ -n "$public_origin" ]]; then
-    echo "最近生成的地址：$public_origin"
+    echo "Latest URL: $public_origin"
   elif rg -qi 'connection timed out|operation timed out|connection refused|connection reset' "$tunnel_log"; then
-    echo "状态：到 localhost.run:22 的 SSH 链路被当前网络阻断。"
-    echo "建议：让电脑连接手机热点后重试。"
+    echo "Status: the SSH connection to localhost.run:22 was blocked or reset."
+    echo "Hint: try a phone hotspot, then run this script again."
   else
-    echo "日志中没有找到有效的公网地址。"
+    echo "No valid public URL was found in the log."
   fi
-  echo "日志文件：$tunnel_log"
+  echo "Log file: $tunnel_log"
   tail -n 100 "$tunnel_log"
 else
-  echo "未找到 $tunnel_log，说明便捷公网脚本尚未运行。"
+  echo "No localhost.run log found. The Easy Public script may not have run yet."
 fi

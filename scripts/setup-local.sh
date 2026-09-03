@@ -4,8 +4,12 @@ set -euo pipefail
 project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$project_dir"
 
+source scripts/logging.sh
+ensure_run_context "$project_dir"
+start_run_logging "$RUN_LOG_DIR/run.log"
+
 if [[ -f .env ]]; then
-  echo ".env 已存在，未覆盖。"
+  echo "[INFO] .env already exists; leaving it unchanged."
 else
   route_info="$(ip route get 1.1.1.1 2>/dev/null || true)"
   local_ip="$(awk '{for(i=1;i<=NF;i++) if($i=="src") {print $(i+1); exit}}' <<< "$route_info")"
@@ -21,9 +25,9 @@ else
     -e "s#SESSION_SECRET=.*#SESSION_SECRET=${session_secret}#" \
     .env.example > .env
   chmod 600 .env
-  echo "已生成 .env，本地入口：http://${local_ip}:3000"
+  echo "[INFO] Created .env. Local URL: http://${local_ip}:3000"
 fi
 
-pnpm install
-pnpm build
-echo "初始化完成。运行 scripts/start-local.sh 启动全部本地端。"
+run_interactive pnpm install
+run_interactive pnpm build
+echo "[INFO] Setup complete. Run scripts/start-local.sh to start the local stack."

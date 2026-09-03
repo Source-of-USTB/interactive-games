@@ -4,25 +4,64 @@ set -euo pipefail
 project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$project_dir"
 
+source scripts/logging.sh
+ensure_run_context "$project_dir"
+run_log="$RUN_LOG_DIR/run.log"
+start_run_logging "$run_log"
+
 if ! command -v cloudflared >/dev/null 2>&1; then
-  echo "缺少 cloudflared" >&2
+  echo "[ERROR] cloudflared is missing." >&2
   exit 1
 fi
 
-mkdir -p runtime
-tunnel_log="$project_dir/runtime/quick-tunnel.log"
-: >"$tunnel_log"
+gateway_port="${PUBLIC_GATEWAY_PORT:-3100}"
+game_port="${PORT:-}"
+if [[ -f .env ]]; then
+  configured_port="$(sed -n 's/^PORT=//p' .env | tail -n 1)"
+  game_port="${configured_port:-$game_port}"
+fi
+game_port="${game_port:-3000}"
+gateway_log="$RUN_LOG_DIR/player-gateway.log"
+tunnel_log="$RUN_LOG_DIR/quick-tunnel.log"
+PORT="$game_port" PUBLIC_GATEWAY_PORT="$gateway_port" node scripts/player-gateway.mjs >"$gateway_log" 2>&1 &
+gateway_pid=$!
+tunnel_pid=""
+
+cleanup_tunnel() {
+  if [[ -n "$tunnel_pid" ]]; then
+    kill "$tunnel_pid" 2>/dev/null || true
+    wait "$tunnel_pid" 2>/dev/null || true
+  fi
+  kill "$gateway_pid" 2>/dev/null || true
+  wait "$gateway_pid" 2>/dev/null || true
+}
+trap cleanup_tunnel EXIT INT TERM
+
+gateway_ready=false
+for _attempt in {1..30}; do
+  if rg -q '^\[INFO\] Player gateway listening on ' "$gateway_log"; then
+    gateway_ready=true
+    break
+  fi
+  if ! kill -0 "$gateway_pid" 2>/dev/null; then
+    echo "[ERROR] Player gateway failed to start." >&2
+    tail -n 40 "$gateway_log" >&2
+    exit 1
+  fi
+  sleep 0.1
+done
+if [[ "$gateway_ready" != "true" ]]; then
+  echo "[ERROR] Player gateway did not become ready within 3 seconds." >&2
+  tail -n 40 "$gateway_log" >&2
+  exit 1
+fi
+
 cloudflared tunnel \
   --no-autoupdate \
   --edge-ip-version 4 \
   --protocol http2 \
-  --url http://127.0.0.1:3000 >"$tunnel_log" 2>&1 &
+  --url "http://127.0.0.1:${gateway_port}" >"$tunnel_log" 2>&1 &
 tunnel_pid=$!
-cleanup_tunnel() {
-  kill "$tunnel_pid" 2>/dev/null || true
-  wait "$tunnel_pid" 2>/dev/null || true
-}
-trap cleanup_tunnel EXIT INT TERM
 
 extract_public_origin() {
   rg -o 'https://[a-z0-9-]+\.trycloudflare\.com' "$tunnel_log" \
@@ -33,8 +72,8 @@ extract_public_origin() {
 
 print_failure_hint() {
   if rg -q 'api\.trycloudflare\.com.*connection reset by peer|connection reset by peer' "$tunnel_log"; then
-    echo "[诊断] Quick Tunnel 尚未创建：到 api.trycloudflare.com:443 的连接被网络链路或对端重置。" >&2
-    echo "[建议] 先把电脑切换到手机热点后重试；这不是游戏后端或二维码页面故障。" >&2
+    echo "[ERROR] Quick Tunnel creation failed: the connection to api.trycloudflare.com:443 was reset." >&2
+    echo "[HINT] Try a phone hotspot, then run this script again." >&2
   fi
 }
 
@@ -45,7 +84,7 @@ for _attempt in {1..80}; do
     break
   fi
   if ! kill -0 "$tunnel_pid" 2>/dev/null; then
-    echo "快速公网隧道启动失败：" >&2
+    echo "[ERROR] Quick Tunnel failed to start." >&2
     print_failure_hint
     sed -n '1,120p' "$tunnel_log" >&2
     exit 1
@@ -54,16 +93,14 @@ for _attempt in {1..80}; do
 done
 
 if [[ -z "$public_origin" ]]; then
-  echo "20 秒内未获得快速隧道地址" >&2
-  echo "详细日志：$tunnel_log" >&2
+  echo "[ERROR] No Quick Tunnel URL appeared within 20 seconds." >&2
   print_failure_hint
   tail -n 80 "$tunnel_log" >&2
   exit 1
 fi
 
-echo "临时公网入口：$public_origin"
-echo "该地址仅用于彩排，每次启动都会变化。"
-echo "隧道日志：$tunnel_log"
+echo "[INFO] Temporary public URL: $public_origin"
+echo "[WARN] This URL is for rehearsal only and changes on every run."
 PUBLIC_ORIGIN="$public_origin" \
   PUBLIC_HEALTHCHECK=true \
   KEEP_SERVER_AFTER_GODOT=true \

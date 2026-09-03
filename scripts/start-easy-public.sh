@@ -4,17 +4,19 @@ set -euo pipefail
 project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$project_dir"
 
+source scripts/logging.sh
+ensure_run_context "$project_dir"
+run_log="$RUN_LOG_DIR/run.log"
+start_run_logging "$run_log"
+
 if ! command -v ssh >/dev/null 2>&1; then
-  echo "缺少 OpenSSH 客户端（ssh）" >&2
+  echo "[ERROR] OpenSSH client (ssh) is missing." >&2
   exit 1
 fi
 
-mkdir -p runtime
-tunnel_log="$project_dir/runtime/localhost-run.log"
-gateway_log="$project_dir/runtime/player-gateway.log"
+tunnel_log="$RUN_LOG_DIR/localhost-run.log"
+gateway_log="$RUN_LOG_DIR/player-gateway.log"
 known_hosts="$project_dir/runtime/ssh-known-hosts"
-: >"$tunnel_log"
-: >"$gateway_log"
 
 game_port="${PORT:-}"
 if [[ -f .env ]]; then
@@ -40,19 +42,19 @@ trap cleanup_tunnel EXIT INT TERM
 
 gateway_ready=false
 for _attempt in {1..30}; do
-  if rg -q '"status":"ready"' "$gateway_log"; then
+  if rg -q '^\[INFO\] Player gateway listening on ' "$gateway_log"; then
     gateway_ready=true
     break
   fi
   if ! kill -0 "$gateway_pid" 2>/dev/null; then
-    echo "玩家公网网关启动失败：" >&2
+    echo "[ERROR] Player gateway failed to start." >&2
     tail -n 40 "$gateway_log" >&2
     exit 1
   fi
   sleep 0.1
 done
 if [[ "$gateway_ready" != "true" ]]; then
-  echo "玩家公网网关未能在 3 秒内就绪。" >&2
+  echo "[ERROR] Player gateway did not become ready within 3 seconds." >&2
   tail -n 40 "$gateway_log" >&2
   exit 1
 fi
@@ -80,10 +82,10 @@ extract_public_origin() {
 
 print_failure_hint() {
   if rg -qi 'connection timed out|operation timed out|connection refused|connection reset' "$tunnel_log"; then
-    echo "[诊断] 到 localhost.run:22 的 SSH 链路被当前网络阻断。" >&2
-    echo "[建议] 让电脑连接手机热点后重试。" >&2
+    echo "[ERROR] The SSH connection to localhost.run:22 was blocked or reset." >&2
+    echo "[HINT] Try a phone hotspot, then run this script again." >&2
   elif rg -qi 'permission denied' "$tunnel_log"; then
-    echo "[诊断] localhost.run 拒绝了本次匿名隧道申请。" >&2
+    echo "[ERROR] localhost.run rejected this anonymous tunnel request." >&2
   fi
 }
 
@@ -94,12 +96,12 @@ for _attempt in {1..120}; do
     break
   fi
   if ! kill -0 "$gateway_pid" 2>/dev/null; then
-    echo "玩家公网网关在隧道建立前退出：" >&2
+    echo "[ERROR] Player gateway exited before the tunnel was ready." >&2
     tail -n 40 "$gateway_log" >&2
     exit 1
   fi
   if ! kill -0 "$tunnel_pid" 2>/dev/null; then
-    echo "localhost.run 公网隧道启动失败：" >&2
+    echo "[ERROR] localhost.run tunnel failed to start." >&2
     print_failure_hint
     tail -n 100 "$tunnel_log" >&2
     exit 1
@@ -108,18 +110,15 @@ for _attempt in {1..120}; do
 done
 
 if [[ -z "$public_origin" ]]; then
-  echo "30 秒内未获得 localhost.run 公网地址。" >&2
+  echo "[ERROR] No localhost.run URL appeared within 30 seconds." >&2
   print_failure_hint
   tail -n 100 "$tunnel_log" >&2
   exit 1
 fi
 
-echo "临时公网入口：$public_origin"
-echo "隧道日志：$tunnel_log"
-echo "玩家公网网关：http://127.0.0.1:${gateway_port}（管理路由已隔离）"
-echo "正在启动游戏并验证 HTTP、会话、Bootstrap 和 WebSocket……"
+echo "[INFO] Temporary public URL: $public_origin"
+echo "[INFO] Starting the game and validating HTTP, session, bootstrap, and WebSocket."
 PUBLIC_ORIGIN="$public_origin" \
   PUBLIC_HEALTHCHECK=true \
-  PUBLIC_HEALTHCHECK_ORIGIN="http://127.0.0.1:${gateway_port}" \
   KEEP_SERVER_AFTER_GODOT=true \
   scripts/start-local.sh

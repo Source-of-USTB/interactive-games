@@ -40,13 +40,13 @@ Node.js 决定票数、程序和胜负。Godot 只消费快照与轨迹，不能
 
 ## 同学是否需要连现场 Wi-Fi
 
-- 公网模式：不需要。手机用自己的校园网或移动数据，二维码指向 `PUBLIC_ORIGIN`。现场电脑必须保持联网且 Cloudflare Tunnel 正常。
+- 公网模式：不需要。手机用自己的校园网或移动数据，二维码指向 `PUBLIC_ORIGIN`。现场电脑必须保持联网且 Cloudflare Tunnel 正常。每次启动的日志保存在 `runtime/logs/`，不会覆盖旧日志。
 - 本地备用模式：需要。管理端把二维码切到“本地 Wi-Fi”，手机连入同一台关闭客户端隔离的路由器。
 - 无服务模式：不接收手机。Godot 播放内置演示，现场不会黑屏。
 
 公网隧道需要一次性配置域名和 Cloudflare 凭据，见 [现场运行手册](docs/现场运行手册.md)。完成后用 `./scripts/start-public.sh`。
 
-未配域名时，默认使用不依赖 Cloudflare 的 `./scripts/start-easy-public.sh`。它通过系统自带的 SSH 向 localhost.run 申请免费随机 HTTPS 地址，无需注册或安装客户端；隧道只连接独立的玩家网关，管理页、大屏页、统计和导出均不对外暴露。启动 Godot 前会完整验证健康检查、玩家会话、Bootstrap 和 WebSocket。请保持终端打开，失败时运行 `./scripts/diagnose-easy-public.sh`，日志位于 `runtime/localhost-run.log`。
+未配域名时，默认使用不依赖 Cloudflare 的 `./scripts/start-easy-public.sh`。它通过系统自带的 SSH 向 localhost.run 申请免费随机 HTTPS 地址，无需注册或安装客户端；隧道只连接独立的玩家网关，管理页、大屏页、统计和导出均不对外暴露。启动 Godot 前会完整验证健康检查、玩家会话、Bootstrap 和 WebSocket。请保持终端打开，失败时运行 `./scripts/diagnose-easy-public.sh`，日志位于 `runtime/logs/`。
 
 Cloudflare Quick Tunnel 仅保留为第二备选：`./scripts/start-quick-public.sh`。它的地址同样每次变化，不作为正式活动的稳定入口。
 

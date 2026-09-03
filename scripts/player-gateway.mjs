@@ -49,7 +49,7 @@ function proxyHttp(request, response) {
     upstreamResponse.pipe(response);
   });
   upstream.on('error', (error) => {
-    if (!response.headersSent) sendJson(response, 502, { error: '游戏服务尚未就绪' });
+    if (!response.headersSent) sendJson(response, 502, { error: 'Game server is not ready.' });
     else response.destroy(error);
   });
   request.pipe(upstream);
@@ -82,11 +82,11 @@ function proxySanitizedHealth(response) {
           serverTime: health.serverTime,
         });
       } catch {
-        sendJson(response, 502, { error: '游戏服务健康检查响应无效' });
+        sendJson(response, 502, { error: 'Game server returned an invalid health response.' });
       }
     });
   });
-  upstream.on('error', () => sendJson(response, 502, { error: '游戏服务尚未就绪' }));
+  upstream.on('error', () => sendJson(response, 502, { error: 'Game server is not ready.' }));
 }
 
 const server = http.createServer((request, response) => {
@@ -157,10 +157,5 @@ process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 
 server.listen(listenPort, listenHost, () => {
-  console.log(JSON.stringify({
-    status: 'ready',
-    gateway: `http://${listenHost}:${listenPort}`,
-    backend: `http://${backendHost}:${backendPort}`,
-    publicRoutes: ['/join', '/assets/*', '/api/health', '/api/session', '/api/bootstrap', '/ws?role=player|probe'],
-  }));
+  console.log(`[INFO] Player gateway listening on http://${listenHost}:${listenPort}; backend http://${backendHost}:${backendPort}.`);
 });
