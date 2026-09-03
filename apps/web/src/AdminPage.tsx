@@ -52,11 +52,25 @@ export function AdminPage() {
   const [demoMode, setDemoMode] = useState(false);
   const now = useClock(1000);
 
+  const clearAdminToken = (): void => {
+    localStorage.removeItem("codegame.admin.token");
+    setToken("");
+    setDraftToken("");
+  };
+
+  useEffect(() => {
+    if (realtime.authInvalid) clearAdminToken();
+  }, [realtime.authInvalid]);
+
   useEffect(() => {
     if (!token) return;
     fetch("/api/maps", { headers: { Authorization: `Bearer ${token}` } })
       .then(async (response) => {
-        if (!response.ok) throw new Error("管理密钥无效");
+        if (response.status === 401) {
+          clearAdminToken();
+          throw new Error("管理密钥无效");
+        }
+        if (!response.ok) throw new Error("地图读取失败");
         return response.json() as Promise<MapSummary[]>;
       })
       .then((value) => {
@@ -244,10 +258,7 @@ export function AdminPage() {
       </div>
 
       {message && <div className="toast" onClick={() => setMessage(undefined)}>{message}</div>}
-      <button type="button" className="logout-button" onClick={() => {
-        localStorage.removeItem("codegame.admin.token");
-        setToken("");
-      }}>退出管理端</button>
+      <button type="button" className="logout-button" onClick={clearAdminToken}>退出管理端</button>
     </main>
   );
 }

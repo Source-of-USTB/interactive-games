@@ -135,7 +135,7 @@ export function MapBoard({ state, now, compact = false }: { state: PublicRoundSt
         return (
           <div
             key={key}
-            className={`map-tile ${visual?.className ?? ""} ${isGoal ? "tile--goal" : ""} ${activeDoor ? "tile--door-open" : ""}`}
+            className={`map-tile ${visual?.className ?? ""} ${isGoal ? "tile--goal" : ""} ${activeDoor ? "tile--door-open" : ""} ${isRobot ? "tile--occupied" : ""}`}
             aria-label={[visual?.label, isGoal ? "终点" : undefined, isRobot ? "机器人" : undefined].filter(Boolean).join("，")}
           >
             {isGoal && <span className="goal-core" />}
