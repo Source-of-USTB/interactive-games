@@ -44,17 +44,11 @@ export function chooseNextRound(
   const recentMapIds = new Set(history.slice(-4).map((entry) => entry.mapId));
   const firstRunStreak = recentStreak(history, (entry) => entry.firstRunSuccess);
   const failedStreak = recentStreak(history, (entry) => !entry.finalSuccess);
-  const roundsSinceBugClinic = [...history].reverse().findIndex((entry) => entry.mode === "BUG_CLINIC");
-
   let mode: GameMode = "COCODE";
   let targetDifficulty = 2;
   let reason = "保持默认共同编程节奏";
 
-  if (roundsSinceBugClinic < 0 || roundsSinceBugClinic >= 2) {
-    mode = "BUG_CLINIC";
-    targetDifficulty = 2 + Math.min(2, Math.floor(history.length / 4));
-    reason = "轮换到 Bug 急诊室，确保出现调试体验";
-  } else if (failedStreak >= 2) {
+  if (failedStreak >= 2) {
     mode = "COCODE";
     targetDifficulty = 1;
     reason = "连续两轮未通过，回到启动区恢复节奏";

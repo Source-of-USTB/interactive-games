@@ -2,12 +2,28 @@ import { describe, expect, it } from "vitest";
 import { compileProgram } from "./program.js";
 import { collectSlots } from "./program.js";
 import { debugCandidateSlots, executeProgram } from "./engine.js";
-import { GAME_MAPS } from "./maps.js";
+import { GAME_MAPS, mapsForMode } from "./maps.js";
 
 describe("formal map catalog", () => {
-  it("contains 15 regular maps and 3 showcase maps", () => {
-    expect(GAME_MAPS.filter((map) => map.chapter < 4)).toHaveLength(15);
+  it("contains 11 regular maps and 3 showcase maps", () => {
+    expect(GAME_MAPS.filter((map) => map.chapter < 4)).toHaveLength(11);
     expect(GAME_MAPS.filter((map) => map.chapter === 4)).toHaveLength(3);
+  });
+
+  it("keeps only six low-difficulty maps in co-code mode", () => {
+    const coCodeMaps = mapsForMode("COCODE");
+
+    expect(coCodeMaps).toHaveLength(6);
+    expect(coCodeMaps.every((map) => map.difficulty <= 2)).toBe(true);
+    expect(coCodeMaps.map((map) => map.id)).toEqual([
+      "boot-01-first-route",
+      "boot-02-north-gate",
+      "boot-03-east-stairs",
+      "boot-04-south-dock",
+      "boot-05-chip-line",
+      "factory-01-switch-door",
+    ]);
+    expect(mapsForMode("BUG_CLINIC")).toHaveLength(0);
   });
 
   for (const map of GAME_MAPS) {

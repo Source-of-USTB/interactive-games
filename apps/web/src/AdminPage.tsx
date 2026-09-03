@@ -209,7 +209,6 @@ export function AdminPage() {
               setSelectedMap(maps.find((map) => map.modes.includes(next))?.id ?? "");
             }}>
               <option value="COCODE">全场共编</option>
-              <option value="BUG_CLINIC">Bug 急诊室</option>
               <option value="LOGIC_LAB">逻辑实验室</option>
             </select>
           </label>

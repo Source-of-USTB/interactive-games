@@ -8,6 +8,7 @@ import {
   debugCandidateSlots,
   executeProgram,
   getMapById,
+  mapsForMode,
   publicMap,
   traceDuration,
   type ChoiceValue,
@@ -211,6 +212,9 @@ export class GameRoom {
     if (options.mapId && !requestedMap) throw new Error(`Unknown map: ${options.mapId}`);
     if (requestedMap && !requestedMap.mode.includes(requestedMode)) {
       throw new Error(`Map ${requestedMap.id} does not support mode ${requestedMode}`);
+    }
+    if (mapsForMode(requestedMode).length === 0) {
+      throw new Error(`No maps configured for mode ${requestedMode}`);
     }
     const fallback = requestedMap ?? chooseNextRound(this.history, this.connectedPlayers, randomUUID()).map;
     this.showcaseStage = 0;
