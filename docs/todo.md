@@ -2,18 +2,19 @@
 
 ## 已修复
 
-- [x] `crypto.randomUUID` 在局域网 HTTP下不可用, 提示 undefined — **`7746798`**
-- [x] 127.0.0.1 卡"正在连接人类编译器"(localStorage 里的旧 token 超过 24h / SESSION_SECRET 变更后失效, `ensurePlayerToken`)— **5a9efc4**
-- [x] Web 地图格子大小不固定、机器人移动时格子跳动(只设了 `gridTemplateColumns`, 行高默认 `auto` 由内容撑)— **82cbc19**
-- [x] **Admin 投票时间设置太短**: 服务端 `updateTimings` 硬钳 `voteMs` 3~10 秒、`briefingMs` 3~12 秒; 默认 `voteMs: 5_000` 太短; 滑条范围窄; 界面没有说明"每步投票"、不显示本关共多少步
-- [x] **PREDICT 预测阶段只有 3 秒**(`predictMs: 3_000`)、**DEBUG_SELECT 定位 6 秒**, 过短; admin 面板完全无法调整这两项(`updateTimings` 只接受 `voteMs`/`briefingMs`)
-- [x] **DEBUG_SELECT 阶段青色行自动高亮**: `currentTraceLine` 在非执行阶段返回 `execution.failureLine`, 出现莫名奇妙的高亮, 猜测为卡死的行提前显示, 至少不是集成上次的高亮; 并且debug任务可选选项没有提示
-- [x] **Godot 程序面板溢出**: 每行固定 `y += 66`, 面板高 452px 只能放约 5 行, 地图指令多时画到底部之外, 与"协作能量"挤一起
-- [x] **Godot 浮点显示**: `JSON.parse` 数字全变 float, `str()` 直接拼出 `0.0 人参与`、`第 2.0 章`、`难度 3.0`、今日统计/投票数/预测人数同样问题
-- [x]  **玩家端地图显示**：缩小 `/join` 页面的机器人图标，将机器人固定在地块中心，并确保图标不会超出地块边界。
-- [x] **占用地块显示**：机器人占用芯片、开关、门等地块时，将地块符号移动到右上角，避免与机器人重叠；未被占用的地块仍保持符号居中。
-- [x] **管理端秘钥超时失效**：管理端收到 HTTP 401 或 WebSocket 4401 鉴权失败后，自动清除过期管理密钥并返回密钥输入状态。
+- [x] **局域网 HTTP 下无法使用 `crypto.randomUUID`**（调用时返回 `undefined`）— **`7746798`**
+- [x] **127.0.0.1 卡在“正在连接人类编译器”**（`localStorage` 中的旧 token 超过 24 小时或 `SESSION_SECRET` 变更后失效，`ensurePlayerToken` 未能恢复）— **`5a9efc4`**
+- [x] **Web 地图格子大小不固定，机器人移动时格子跳动**（只设置了 `gridTemplateColumns`，行高默认由内容撑开）— **`82cbc19`**
+- [x] **Admin 投票时间设置太短**（服务端 `updateTimings` 将 `voteMs` 限制在 3～10 秒、`briefingMs` 限制在 3～12 秒；默认 `voteMs: 5_000`；滑条范围过窄；界面未说明“每步投票”，也未显示本关总步数）— **`a3fa46f`**；后续 `BRIEFING` 已并入 `JOIN` — **`d069d32`**
+- [x] **PREDICT 预测阶段和 DEBUG_SELECT 定位阶段过短**（`predictMs: 3_000`、定位阶段 6 秒；Admin 面板无法调整这两项，`updateTimings` 只接受 `voteMs` 和 `briefingMs`）— **`a3fa46f`**；后续 `DEBUG_SELECT` 与 `PREDICT` 分别被移除 — **`11e1124`**、**`7c503b6`**
+- [x] **DEBUG_SELECT 阶段青色行自动高亮**（`currentTraceLine` 在非执行阶段返回 `execution.failureLine`，导致疑似卡死的行被提前显示；Debug 任务可选项也没有提示）— **`f86ca5b`**；后续 Debug 玩法被移除 — **`11e1124`**
+- [x] **Godot 程序面板溢出**（每行固定 `y += 66`，452 px 高的面板只能显示约 5 行，地图指令较多时会超出底部并挤压“协作能量”）— **`ce62684`**；后续“协作能量”被移除 — **`7c503b6`**
+- [x] **Godot 数字显示为浮点数**（`JSON.parse` 将数字解析为 float，直接调用 `str()` 会显示 `0.0 人参与`、`第 2.0 章`、`难度 3.0` 等文本）— **`10968f5`**
+- [x] **玩家端机器人图标过大且未固定在地块中心**（机器人可能超出 `/join` 页面的地图格子）— **`ffe8757`**
+- [x] **机器人遮挡所占地块的符号**（芯片、开关、门等符号与机器人均显示在地块中央）— **`ffe8757`**
+- [x] **管理端密钥失效后仍停留在面板**（收到 HTTP 401 或 WebSocket 4401 后未清除过期密钥并返回输入状态）— **`1972874`**
 
 ## 未修复
 
-- [ ] **UI 丑**
+- [ ] **UI 丑**（具体页面、视觉问题和验收标准待补充）
+- [ ] **成功/失败提示**（程序执行结束后短暂显示明确的成功或失败提示，再自动进入下一关；不恢复预测、三星评分或独立结算阶段）
