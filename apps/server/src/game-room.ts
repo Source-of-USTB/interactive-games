@@ -24,7 +24,6 @@ import type { PersistedRound } from "./database.js";
 
 export interface RoomTimings {
   joinMs: number;
-  briefingMs: number;
   voteMs: number;
   revealMs: number;
   compileMs: number;
@@ -35,7 +34,6 @@ export interface RoomTimings {
 
 export const DEFAULT_TIMINGS: RoomTimings = {
   joinMs: 10_000,
-  briefingMs: 10_000,
   voteMs: 10_000,
   revealMs: 3_000,
   compileMs: 3_000,
@@ -190,7 +188,7 @@ export class GameRoom {
     }
     const fallback = requestedMap ?? chooseNextRound(this.history, this.connectedPlayers, randomUUID()).map;
     this.showcaseStage = 0;
-    this.beginRound(fallback, requestedMode, true);
+    this.beginRound(fallback, requestedMode);
   }
 
   restore(checkpoint: RoomCheckpoint): boolean {
@@ -217,7 +215,7 @@ export class GameRoom {
     if (this.phase === "AUTHORING") this.openAuthoringSlot(Date.now());
     else if (this.phase === "EXECUTE") this.enterExecution();
     else if (this.phase === "RESULT") this.setPhase("RESULT", this.timings.resultMs, "restored-result");
-    else this.setPhase("BRIEFING", this.timings.briefingMs, "restored-safe-boundary");
+    else this.setPhase("JOIN", this.timings.joinMs, "restored-safe-boundary");
     this.hooks.onSystemEvent("room.restored", { roomId: this.roomId, roundId: this.roundId });
     return true;
   }
@@ -315,7 +313,7 @@ export class GameRoom {
 
   updateTimings(values: Partial<RoomTimings>): void {
     const names: (keyof RoomTimings)[] = [
-      "joinMs", "briefingMs", "voteMs", "revealMs", "compileMs", "predictMs",
+      "joinMs", "voteMs", "revealMs", "compileMs", "predictMs",
       "resultMs", "resetMs",
     ];
     for (const name of names) {
@@ -331,8 +329,7 @@ export class GameRoom {
     this.pruneDisconnected(now);
     if (this.phase === "PAUSED" || this.phase === "ATTRACT" || this.phaseEndsAt > now) return;
 
-    if (this.phase === "JOIN") this.setPhase("BRIEFING", this.timings.briefingMs, "join-complete");
-    else if (this.phase === "BRIEFING") {
+    if (this.phase === "JOIN") {
       this.openAuthoringSlot(now);
     } else if (this.phase === "AUTHORING") {
       if (this.authoringStage === "VOTE") this.lockCurrentSlot(now);
@@ -413,7 +410,7 @@ export class GameRoom {
     return checkpoint;
   }
 
-  private beginRound(map: GameMap, mode: GameMode, includeJoin: boolean): void {
+  private beginRound(map: GameMap, mode: GameMode): void {
     this.map = map;
     this.mode = mode;
     this.roundId = randomUUID();
@@ -436,7 +433,7 @@ export class GameRoom {
     this.score = undefined;
     this.resultMessage = undefined;
     this.roundRecorded = false;
-    this.setPhase(includeJoin ? "JOIN" : "BRIEFING", includeJoin ? this.timings.joinMs : this.timings.briefingMs, "round-started");
+    this.setPhase("JOIN", this.timings.joinMs, "round-started");
   }
 
   private currentSlot(): ProgramSlot | undefined {
@@ -602,7 +599,7 @@ export class GameRoom {
       reason: decision.reason,
     });
     this.showcaseStage = 0;
-    this.beginRound(decision.map, decision.mode, true);
+    this.beginRound(decision.map, decision.mode);
   }
 
   private currentTally(now: number): VoteTally | undefined {

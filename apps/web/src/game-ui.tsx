@@ -23,8 +23,7 @@ export const COMMAND_GLYPHS: Record<ActionCommand, string> = {
 
 export const PHASE_LABELS: Record<RoundPhase, string> = {
   ATTRACT: "等待加入",
-  JOIN: "正在集结",
-  BRIEFING: "任务预览",
+  JOIN: "扫码加入 · 查看任务",
   AUTHORING: "全场编程",
   COMPILE: "正在编译",
   PREDICT: "预测结果",

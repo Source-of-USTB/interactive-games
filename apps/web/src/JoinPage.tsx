@@ -80,7 +80,7 @@ export function JoinPage() {
 
       {realtime.session.observerOnly && <section className="waiting-card"><h2>当前为只看模式</h2><p>现场操作位已达安全上限，你仍可同步观看本轮。</p></section>}
 
-      {(state.phase === "BRIEFING" || state.phase === "EXECUTE" || state.phase === "RESULT") && (
+      {(state.phase === "JOIN" || state.phase === "EXECUTE" || state.phase === "RESULT") && (
         <MapBoard state={state} now={correctedNow} compact />
       )}
 
@@ -157,8 +157,8 @@ export function JoinPage() {
       {(state.phase === "JOIN" || state.phase === "RESET" || state.phase === "PAUSED") && (
         <section className="waiting-card">
           <div className="waiting-orbit" />
-          <h2>{state.phase === "PAUSED" ? "现场暂时暂停" : "你已加入本轮"}</h2>
-          <p>{state.phase === "PAUSED" ? "大屏恢复后会从安全位置继续" : "下一次投票会自动出现在这里"}</p>
+          <h2>{state.phase === "PAUSED" ? "现场暂时暂停" : state.phase === "JOIN" ? "扫码加入，查看本轮任务" : "你已加入本轮"}</h2>
+          <p>{state.phase === "PAUSED" ? "大屏恢复后会从安全位置继续" : state.phase === "JOIN" ? "开场结束后会自动进入第一轮投票" : "下一次投票会自动出现在这里"}</p>
         </section>
       )}
 

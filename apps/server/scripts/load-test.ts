@@ -108,12 +108,11 @@ async function main(): Promise<void> {
   try {
     await Promise.all([...players.map((player) => player.open()), admin.open()]);
     const connectedMs = performance.now() - startedAt;
-    await admin.request({ type: "admin.command", command: "timings", voteMs: 3_000, briefingMs: 3_000 });
+    await admin.request({ type: "admin.command", command: "timings", joinMs: 3_000, voteMs: 3_000 });
     await admin.request({ type: "admin.command", command: "start", mode: "COCODE", mapId: testMap.id });
     await waitFor(() => players.every((player) => player.state?.phase === "JOIN"), 5_000, "all clients to see JOIN");
     await admin.request({ type: "admin.command", command: "skip" });
-    await waitFor(() => players.every((player) => player.state?.phase === "BRIEFING"), 5_000, "all clients to see BRIEFING");
-    await admin.request({ type: "admin.command", command: "skip" });
+    await waitFor(() => players.every((player) => player.state?.phase === "AUTHORING"), 5_000, "all clients to see AUTHORING");
 
     for (const slot of testMap.template.flatMap((node) => node.kind === "choice" ? [node] : [])) {
       await waitFor(

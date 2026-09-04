@@ -38,7 +38,7 @@ var display_settings: Dictionary = {"qrMode": "public", "masterVolume": 0.8, "ef
 var ui := Ui.new()
 
 var phase_names := {
-	"ATTRACT": "等待启动", "JOIN": "扫码加入", "BRIEFING": "任务解读", "AUTHORING": "全场写代码",
+	"ATTRACT": "等待启动", "JOIN": "扫码加入 · 查看任务", "AUTHORING": "全场写代码",
 	"COMPILE": "人类编译中", "PREDICT": "预测运行结果", "EXECUTE": "代码执行中", "DEBUG_SELECT": "定位故障",
 	"DEBUG_PATCH": "修复代码", "REEXECUTE": "重新执行", "RESULT": "本轮结算", "RESET": "准备下一轮", "PAUSED": "现场已暂停"
 }
@@ -360,7 +360,7 @@ func _update_result() -> void:
 		result_detail.text += "  ·  " + str(int(state.get("predictions", {}).get(state.predictionOutcome, 0))) + " 位同学预测正确"
 
 func _phase_prompt(phase: String) -> String:
-	return {"JOIN": "扫码加入，本轮马上开始", "BRIEFING": "请观察地图与任务目标", "COMPILE": "程序已锁定，正在编译", "PREDICT": "手机上预测这次运行结果", "EXECUTE": "指令正在城市中执行", "DEBUG_SELECT": "全场定位最可疑的代码行", "DEBUG_PATCH": "投票选出正确修复", "REEXECUTE": "修复完成，重新执行"}.get(phase, "等待下一个全场决策")
+	return {"JOIN": "扫码加入并查看地图与任务目标", "COMPILE": "程序已锁定，正在编译", "PREDICT": "手机上预测这次运行结果", "EXECUTE": "指令正在城市中执行", "DEBUG_SELECT": "全场定位最可疑的代码行", "DEBUG_PATCH": "投票选出正确修复", "REEXECUTE": "修复完成，重新执行"}.get(phase, "等待下一个全场决策")
 
 func _choice_label(value) -> String:
 	if value is int or value is float: return "循环 ×" + str(int(value))
@@ -412,7 +412,7 @@ func _enable_offline_demo() -> void:
 
 func _tick_offline_demo(now: int) -> void:
 	if now < offline_next_phase_ms: return
-	var phases := ["BRIEFING", "AUTHORING", "COMPILE", "PREDICT", "EXECUTE", "RESULT"]
+	var phases := ["JOIN", "AUTHORING", "COMPILE", "PREDICT", "EXECUTE", "RESULT"]
 	offline_phase_index = (offline_phase_index + 1) % phases.size()
 	state.phase = phases[offline_phase_index]
 	state.phaseStartedAt = now + server_clock_offset_ms
@@ -427,7 +427,7 @@ func _tick_offline_demo(now: int) -> void:
 func _offline_state() -> Dictionary:
 	var start := {"x": 0, "y": 3, "direction": "E", "activeSwitches": [], "collectedChips": []}
 	var finish := {"x": 4, "y": 1, "direction": "N", "activeSwitches": ["s1"], "collectedChips": ["c1"]}
-	return {"roomId": "DEMO", "roundId": "offline-preview", "mode": "COCODE", "phase": "BRIEFING", "phaseStartedAt": Time.get_ticks_msec(), "phaseEndsAt": Time.get_ticks_msec() + 6000, "serverNow": Time.get_ticks_msec(), "connectedPlayers": 88, "map": {"id": "demo", "name": "能量站穿越", "chapter": 2, "difficulty": 3, "width": 7, "height": 5, "start": start, "goal": {"x": 5, "y": 1}, "tiles": [{"kind": "WALL", "x": 2, "y": 2}, {"kind": "WALL", "x": 3, "y": 2}, {"kind": "CHIP", "id": "c1", "x": 2, "y": 3}, {"kind": "SWITCH", "id": "s1", "x": 4, "y": 3}, {"kind": "DOOR", "switchId": "s1", "x": 4, "y": 2}, {"kind": "CONVEYOR", "direction": "N", "x": 4, "y": 1}], "mission": "收集数据芯片，启动开关后抵达能量核心", "knowledgePoint": "用有序指令把复杂任务拆成可验证步骤", "previewFocus": []}, "slots": [{"slotId": "move_1", "line": 1, "prompt": "移动到芯片", "kind": "command", "options": ["MOVE", "TURN_LEFT", "TURN_RIGHT"]}, {"slotId": "turn_1", "line": 2, "prompt": "转向能量门", "kind": "command", "options": ["MOVE", "TURN_LEFT", "TURN_RIGHT"]}, {"slotId": "repeat", "line": 3, "prompt": "重复次数", "kind": "number", "options": [2, 3, 4]}], "currentSlotIndex": 0, "lockedChoices": {"move_1": "MOVE", "turn_1": "TURN_LEFT", "repeat": 2}, "collaborationEnergy": 3, "trace": [{"sequence": 0, "type": "ACTION", "sourceLine": 1, "command": "MOVE", "label": "前进", "before": start, "after": {"x": 2, "y": 3, "direction": "E", "activeSwitches": [], "collectedChips": ["c1"]}, "durationMs": 1100}, {"sequence": 1, "type": "ACTION", "sourceLine": 2, "command": "TURN_LEFT", "label": "左转", "before": {"x": 2, "y": 3, "direction": "E", "activeSwitches": [], "collectedChips": ["c1"]}, "after": {"x": 4, "y": 3, "direction": "N", "activeSwitches": ["s1"], "collectedChips": ["c1"]}, "durationMs": 1200}, {"sequence": 2, "type": "SUCCESS", "sourceLine": 3, "label": "到达目标", "before": finish, "after": finish, "durationMs": 900}], "debugCandidateSlots": ["move_1", "turn_1", "repeat"], "debugAttempts": 0, "predictions": {"success": 52, "crash": 18, "incomplete": 9}, "showcaseStage": 0, "showcaseTotalStages": 1}
+	return {"roomId": "DEMO", "roundId": "offline-preview", "mode": "COCODE", "phase": "JOIN", "phaseStartedAt": Time.get_ticks_msec(), "phaseEndsAt": Time.get_ticks_msec() + 6000, "serverNow": Time.get_ticks_msec(), "connectedPlayers": 88, "map": {"id": "demo", "name": "能量站穿越", "chapter": 2, "difficulty": 3, "width": 7, "height": 5, "start": start, "goal": {"x": 5, "y": 1}, "tiles": [{"kind": "WALL", "x": 2, "y": 2}, {"kind": "WALL", "x": 3, "y": 2}, {"kind": "CHIP", "id": "c1", "x": 2, "y": 3}, {"kind": "SWITCH", "id": "s1", "x": 4, "y": 3}, {"kind": "DOOR", "switchId": "s1", "x": 4, "y": 2}, {"kind": "CONVEYOR", "direction": "N", "x": 4, "y": 1}], "mission": "收集数据芯片，启动开关后抵达能量核心", "knowledgePoint": "用有序指令把复杂任务拆成可验证步骤", "previewFocus": []}, "slots": [{"slotId": "move_1", "line": 1, "prompt": "移动到芯片", "kind": "command", "options": ["MOVE", "TURN_LEFT", "TURN_RIGHT"]}, {"slotId": "turn_1", "line": 2, "prompt": "转向能量门", "kind": "command", "options": ["MOVE", "TURN_LEFT", "TURN_RIGHT"]}, {"slotId": "repeat", "line": 3, "prompt": "重复次数", "kind": "number", "options": [2, 3, 4]}], "currentSlotIndex": 0, "lockedChoices": {"move_1": "MOVE", "turn_1": "TURN_LEFT", "repeat": 2}, "collaborationEnergy": 3, "trace": [{"sequence": 0, "type": "ACTION", "sourceLine": 1, "command": "MOVE", "label": "前进", "before": start, "after": {"x": 2, "y": 3, "direction": "E", "activeSwitches": [], "collectedChips": ["c1"]}, "durationMs": 1100}, {"sequence": 1, "type": "ACTION", "sourceLine": 2, "command": "TURN_LEFT", "label": "左转", "before": {"x": 2, "y": 3, "direction": "E", "activeSwitches": [], "collectedChips": ["c1"]}, "after": {"x": 4, "y": 3, "direction": "N", "activeSwitches": ["s1"], "collectedChips": ["c1"]}, "durationMs": 1200}, {"sequence": 2, "type": "SUCCESS", "sourceLine": 3, "label": "到达目标", "before": finish, "after": finish, "durationMs": 900}], "debugCandidateSlots": ["move_1", "turn_1", "repeat"], "debugAttempts": 0, "predictions": {"success": 52, "crash": 18, "incomplete": 9}, "showcaseStage": 0, "showcaseTotalStages": 1}
 
 func _http_origin_from_ws(url: String) -> String:
 	var value := url.replace("wss://", "https://").replace("ws://", "http://")

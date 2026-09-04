@@ -4,7 +4,6 @@ import { GameRoom, type RoomCheckpoint } from "./game-room.js";
 
 const fastTimings = {
   joinMs: 1,
-  briefingMs: 1,
   voteMs: 1_100,
   revealMs: 1,
   compileMs: 1,
@@ -26,8 +25,7 @@ describe("GameRoom", () => {
     const map = getMapById("boot-01-first-route")!;
     room.connectPlayer("p1");
     room.start({ mode: "COCODE", mapId: map.id });
-    advance(room); // JOIN -> BRIEFING
-    advance(room); // BRIEFING -> AUTHORING
+    advance(room); // JOIN -> AUTHORING
 
     while (room.currentPhase === "AUTHORING") {
       const snapshot = room.snapshot();

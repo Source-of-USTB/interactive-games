@@ -205,7 +205,6 @@ export interface ExecutionResult {
 export type RoundPhase =
   | "ATTRACT"
   | "JOIN"
-  | "BRIEFING"
   | "AUTHORING"
   | "COMPILE"
   | "PREDICT"

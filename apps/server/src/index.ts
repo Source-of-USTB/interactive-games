@@ -60,7 +60,6 @@ interface ClientMessage {
   mapId?: string;
   mode?: GameMode;
   voteMs?: number;
-  briefingMs?: number;
   joinMs?: number;
   revealMs?: number;
   compileMs?: number;
@@ -423,7 +422,6 @@ function handleMessage(client: ConnectedClient, message: ClientMessage): void {
       else if (message.command === "timings") {
         const timings: Partial<RoomTimings> = {};
         if (message.joinMs !== undefined) timings.joinMs = message.joinMs;
-        if (message.briefingMs !== undefined) timings.briefingMs = message.briefingMs;
         if (message.voteMs !== undefined) timings.voteMs = message.voteMs;
         if (message.revealMs !== undefined) timings.revealMs = message.revealMs;
         if (message.compileMs !== undefined) timings.compileMs = message.compileMs;

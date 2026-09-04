@@ -34,7 +34,6 @@ export function AdminPage() {
   const [selectedMode, setSelectedMode] = useState<GameMode>("COCODE");
   const [timingSeconds, setTimingSeconds] = useState<Record<string, number>>({
     joinMs: 10,
-    briefingMs: 10,
     voteMs: 10,
     revealMs: 3,
     compileMs: 3,
@@ -287,8 +286,7 @@ function modeLabel(mode: GameMode): string {
 }
 
 const TIMING_FIELDS: Array<[string, string]> = [
-  ["joinMs", "集结等待"],
-  ["briefingMs", "任务预览"],
+  ["joinMs", "集结与任务"],
   ["voteMs", "每步投票"],
   ["revealMs", "亮票展示"],
   ["compileMs", "编译过程"],
