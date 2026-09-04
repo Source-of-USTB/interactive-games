@@ -108,8 +108,18 @@ func _build_interface() -> void:
 	add_child(header_title)
 
 	phase_label = ui.pill("连接中", ACCENT)
-	phase_label.position = Vector2(1020, 36)
-	phase_label.size = Vector2(230, 42)
+	phase_label.position = Vector2(820, 25)
+	phase_label.size = Vector2(390, 64)
+	phase_label.add_theme_font_size_override("font_size", 29)
+	phase_label.add_theme_color_override("font_color", Color.WHITE)
+	var phase_style := phase_label.get_theme_stylebox("normal").duplicate() as StyleBoxFlat
+	phase_style.bg_color = Color(ACCENT, 0.18)
+	phase_style.border_color = Color(ACCENT, 0.86)
+	phase_style.set_border_width_all(2)
+	phase_style.set_corner_radius_all(16)
+	phase_style.shadow_color = Color(ACCENT, 0.28)
+	phase_style.shadow_size = 10
+	phase_label.add_theme_stylebox_override("normal", phase_style)
 	add_child(phase_label)
 	player_label = ui.label("0 人参与", 24, Color.WHITE)
 	player_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
