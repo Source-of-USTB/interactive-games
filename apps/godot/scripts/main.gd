@@ -49,9 +49,11 @@ var countdown_label: Label
 var connection_label: Label
 var mission_label: Label
 var map_meta_label: Label
+var knowledge_label: Label
 var status_label: Label
 var footer_label: Label
 var qr_texture: TextureRect
+var qr_backing: Panel
 var qr_hint: Label
 var map_renderer
 var program_panel
@@ -60,7 +62,7 @@ var audio_cues
 var http_request: HTTPRequest
 
 func _ready() -> void:
-	ThemeDB.fallback_font = load("res://assets/fonts/SourceHanSerifCN-Regular.woff2")
+	ThemeDB.fallback_font = load("res://assets/fonts/NotoSansSC-Regular.otf")
 	websocket_url = OS.get_environment("GAME_SERVER_WS")
 	if websocket_url.is_empty(): websocket_url = "ws://127.0.0.1:3000/ws"
 	screen_token = OS.get_environment("SCREEN_TOKEN")
@@ -97,99 +99,135 @@ func _draw() -> void:
 
 func _build_interface() -> void:
 	queue_redraw()
-	header_title = ui.label("全场一起写代码", 34, Color.WHITE)
-	header_title.position = Vector2(58, 32)
-	header_title.size = Vector2(470, 48)
+	var brand_icon := ui.pill("{ }", ACCENT)
+	brand_icon.position = Vector2(48, 26)
+	brand_icon.size = Vector2(52, 52)
+	brand_icon.add_theme_font_size_override("font_size", 28)
+	add_child(brand_icon)
+	header_title = ui.label("全场一起写代码", 32, ui.INK)
+	header_title.position = Vector2(116, 20)
+	header_title.size = Vector2(470, 44)
 	add_child(header_title)
+	var brand_caption := ui.label("CROWD CODE  /  城市协作终端", 15, MUTED)
+	brand_caption.position = Vector2(118, 62)
+	add_child(brand_caption)
 
 	phase_label = ui.pill("连接中", ACCENT)
-	phase_label.position = Vector2(820, 25)
-	phase_label.size = Vector2(390, 64)
-	phase_label.add_theme_font_size_override("font_size", 29)
-	phase_label.add_theme_color_override("font_color", Color.WHITE)
-	var phase_style := phase_label.get_theme_stylebox("normal").duplicate() as StyleBoxFlat
-	phase_style.bg_color = Color(ACCENT, 0.18)
-	phase_style.border_color = Color(ACCENT, 0.86)
-	phase_style.set_border_width_all(2)
-	phase_style.set_corner_radius_all(16)
-	phase_style.shadow_color = Color(ACCENT, 0.28)
-	phase_style.shadow_size = 10
-	phase_label.add_theme_stylebox_override("normal", phase_style)
+	phase_label.position = Vector2(758, 26)
+	phase_label.size = Vector2(310, 52)
+	phase_label.add_theme_font_size_override("font_size", 26)
 	add_child(phase_label)
-	player_label = ui.label("0 人参与", 24, Color.WHITE)
+	player_label = ui.label("0 人参与", 25, ui.INK)
 	player_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	player_label.position = Vector2(1270, 40)
-	player_label.size = Vector2(190, 38)
+	player_label.position = Vector2(1120, 31)
+	player_label.size = Vector2(230, 42)
 	add_child(player_label)
-	countdown_label = ui.label("--", 29, YELLOW)
-	countdown_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	countdown_label.position = Vector2(1480, 35)
-	countdown_label.size = Vector2(110, 48)
+	countdown_label = ui.pill("--", YELLOW)
+	countdown_label.add_theme_font_size_override("font_size", 29)
+	countdown_label.position = Vector2(1392, 26)
+	countdown_label.size = Vector2(120, 52)
 	add_child(countdown_label)
 	connection_label = ui.pill("● 连接中", MUTED)
-	connection_label.position = Vector2(1610, 36)
-	connection_label.size = Vector2(250, 42)
+	connection_label.position = Vector2(1570, 32)
+	connection_label.size = Vector2(302, 40)
 	add_child(connection_label)
 
-	mission_label = ui.label("正在同步任务…", 31, Color.WHITE)
-	mission_label.position = Vector2(58, 96)
-	mission_label.size = Vector2(1220, 52)
+	mission_label = ui.label("正在同步任务…", 28, ui.INK)
+	mission_label.position = Vector2(48, 108)
+	mission_label.size = Vector2(1160, 44)
+	mission_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	add_child(mission_label)
-	map_meta_label = ui.label("城市编程系统", 21, MUTED)
+	map_meta_label = ui.label("城市编程系统", 19, MUTED)
 	map_meta_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	map_meta_label.position = Vector2(1290, 103)
-	map_meta_label.size = Vector2(570, 42)
+	map_meta_label.position = Vector2(1232, 112)
+	map_meta_label.size = Vector2(640, 38)
 	add_child(map_meta_label)
 
-	var map_panel := ui.panel(PANEL, 20)
-	map_panel.position = Vector2(58, 158)
-	map_panel.size = Vector2(1160, 826)
+	var map_panel := ui.panel(Color(PANEL, 0.96), 22)
+	map_panel.position = Vector2(48, 165)
+	map_panel.size = Vector2(1160, 820)
 	add_child(map_panel)
+	var map_title := ui.label("城市任务地图", 21, ui.INK)
+	map_title.position = Vector2(26, 16)
+	map_panel.add_child(map_title)
+	var map_caption := ui.label("CITY GRID  /  实时同步", 15, MUTED)
+	map_caption.position = Vector2(800, 22)
+	map_caption.size = Vector2(334, 28)
+	map_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	map_panel.add_child(map_caption)
 	map_renderer = MapRenderer.new()
-	map_renderer.position = Vector2(18, 18)
-	map_renderer.size = Vector2(1124, 790)
+	map_renderer.position = Vector2(16, 56)
+	map_renderer.size = Vector2(1128, 702)
 	map_renderer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	map_panel.add_child(map_renderer)
+	knowledge_label = ui.label("按顺序编写指令，让小码抵达目标。", 18, MUTED)
+	knowledge_label.position = Vector2(28, 774)
+	knowledge_label.size = Vector2(1104, 30)
+	knowledge_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	map_panel.add_child(knowledge_label)
 
-	var qr_panel := ui.panel(ui.CARD_BG, 18)
-	qr_panel.position = Vector2(1250, 158)
-	qr_panel.size = Vector2(610, 178)
+	var qr_panel := ui.panel(ui.CARD_BG, 22)
+	qr_panel.position = Vector2(1232, 165)
+	qr_panel.size = Vector2(640, 177)
 	add_child(qr_panel)
+	qr_backing = ui.panel(Color.WHITE, 12)
+	qr_backing.position = Vector2(19, 19)
+	qr_backing.size = Vector2(139, 139)
+	qr_panel.add_child(qr_backing)
+	var qr_placeholder := ui.label("等待连接", 18, ui.PANEL)
+	qr_placeholder.position = Vector2(10, 50)
+	qr_placeholder.size = Vector2(119, 36)
+	qr_placeholder.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	qr_backing.add_child(qr_placeholder)
 	qr_texture = TextureRect.new()
-	qr_texture.position = Vector2(18, 18)
-	qr_texture.size = Vector2(142, 142)
+	qr_texture.position = Vector2(27, 27)
+	qr_texture.size = Vector2(123, 123)
 	qr_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	qr_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	qr_panel.add_child(qr_texture)
-	qr_hint = ui.label("扫码提交下一条指令\n无需下载 · 无需注册", 26, Color.WHITE)
-	qr_hint.position = Vector2(184, 33)
-	qr_hint.size = Vector2(400, 110)
+	var join_caption := ui.label("加入协作  /  JOIN THE MISSION", 15, ACCENT)
+	join_caption.position = Vector2(183, 25)
+	qr_panel.add_child(join_caption)
+	qr_hint = ui.label("扫码提交下一条指令\n无需下载 · 无需注册", 24, ui.INK)
+	qr_hint.position = Vector2(181, 59)
+	qr_hint.size = Vector2(440, 92)
 	qr_hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	qr_hint.add_theme_constant_override("line_spacing", 12)
 	qr_panel.add_child(qr_hint)
 
-	var program_host := ui.panel(PANEL, 18)
-	program_host.position = Vector2(1250, 358)
-	program_host.size = Vector2(610, 456)
+	var program_host := ui.panel(PANEL, 22)
+	program_host.position = Vector2(1232, 363)
+	program_host.size = Vector2(640, 431)
 	add_child(program_host)
 	program_panel = ProgramPanel.new()
 	program_panel.position = Vector2(2, 2)
-	program_panel.size = Vector2(606, 452)
+	program_panel.size = Vector2(636, 427)
 	program_host.add_child(program_panel)
 
+	var vote_host := ui.panel(Color(PANEL, 0.96), 22)
+	vote_host.position = Vector2(1232, 815)
+	vote_host.size = Vector2(640, 170)
+	add_child(vote_host)
+	var vote_title := ui.label("全场决策", 19, ui.INK)
+	vote_title.position = Vector2(24, 12)
+	vote_host.add_child(vote_title)
+	var vote_caption := ui.label("LIVE VOTE", 13, MUTED)
+	vote_caption.position = Vector2(494, 18)
+	vote_host.add_child(vote_caption)
 	vote_box = VBoxContainer.new()
-	vote_box.position = Vector2(1270, 833)
-	vote_box.size = Vector2(570, 132)
-	vote_box.add_theme_constant_override("separation", 9)
+	vote_box.position = Vector2(1256, 861)
+	vote_box.size = Vector2(592, 112)
+	vote_box.add_theme_constant_override("separation", 4)
 	add_child(vote_box)
 
-	status_label = ui.label("服务启动中", 18, MUTED)
-	status_label.position = Vector2(58, 1015)
-	status_label.size = Vector2(720, 34)
+	status_label = ui.label("服务启动中", 16, MUTED)
+	status_label.position = Vector2(48, 1020)
+	status_label.size = Vector2(750, 30)
 	add_child(status_label)
-	footer_label = ui.label("今日 0 人次 · 0 条指令 · 城市能量 0", 18, MUTED)
+	footer_label = ui.label("今日 0 人次 · 0 条指令 · 城市能量 0", 16, MUTED)
 	footer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	footer_label.position = Vector2(850, 1015)
-	footer_label.size = Vector2(1010, 34)
+	footer_label.position = Vector2(850, 1020)
+	footer_label.size = Vector2(1022, 30)
 	add_child(footer_label)
 
 	audio_cues = ProceduralAudio.new()
@@ -270,9 +308,13 @@ func _apply_state(next_state: Dictionary) -> void:
 	program_panel.set_state(state)
 	var map: Dictionary = state.get("map", {})
 	mission_label.text = str(map.get("mission", "等待任务"))
+	knowledge_label.text = "编程提示  /  " + str(map.get("knowledgePoint", "按顺序编写指令，让小码抵达目标。"))
 	map_meta_label.text = "第 %s 章  ·  难度 %s  ·  %s" % [int(map.get("chapter", 1)), int(map.get("difficulty", 1)), map.get("name", "")]
 	var phase := str(state.get("phase", "ATTRACT"))
 	phase_label.text = str(phase_names.get(phase, phase))
+	var phase_color: Color = {"AUTHORING": ACCENT, "EXECUTE": GREEN, "COMPILE": YELLOW, "PAUSED": YELLOW}.get(phase, ACCENT)
+	phase_label.add_theme_color_override("font_color", phase_color)
+	phase_label.add_theme_stylebox_override("normal", ui.surface(Color(phase_color, 0.08), 12, Color(phase_color, 0.23)))
 	player_label.text = str(int(state.get("connectedPlayers", 0))) + " 人参与"
 	status_label.text = "房间 %s  ·  轮次 %s  ·  %s" % [state.get("roomId", "MAIN"), state.get("roundId", "--"), state.get("mode", "COCODE")]
 	footer_label.text = "今日 %s 人次 · %s 条指令 · 修复 %s 个 Bug · 城市能量 %s" % [int(daily.get("participantSessions", 0)), int(daily.get("commandsSubmitted", 0)), int(daily.get("bugsFixed", 0)), int(daily.get("cityEnergy", 0))]
@@ -293,7 +335,7 @@ func _update_countdown(corrected_now: float) -> void:
 		return
 	var remaining := maxi(0, int(ceil((ends_at - corrected_now) / 1000.0)))
 	countdown_label.text = str(remaining).pad_zeros(2)
-	countdown_label.modulate = ui.DANGER if remaining <= 3 else YELLOW
+	countdown_label.add_theme_color_override("font_color", ui.DANGER if remaining <= 3 else YELLOW)
 
 func _update_vote_bars() -> void:
 	for child in vote_box.get_children(): child.queue_free()
@@ -321,9 +363,12 @@ func _update_vote_bars() -> void:
 		row.add_child(value)
 		var progress := ProgressBar.new()
 		progress.show_percentage = false
+		progress.add_theme_stylebox_override("background", ui.surface(Color(ACCENT, 0.07), 5, Color.TRANSPARENT))
+		progress.add_theme_stylebox_override("fill", ui.surface(Color(ACCENT, 0.7), 5, Color.TRANSPARENT))
 		progress.max_value = max_votes
 		progress.value = option.get("count", 0)
-		progress.custom_minimum_size = Vector2(330, 28)
+		progress.custom_minimum_size = Vector2(330, 12)
+		progress.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		progress.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(progress)
 		var count := ui.label(str(int(option.get("count", 0))) if tally.get("locked", false) else "", 20, ACCENT)
@@ -337,7 +382,7 @@ func _phase_prompt(phase: String) -> String:
 
 func _choice_label(value) -> String:
 	if value is int or value is float: return "循环 ×" + str(int(value))
-	return {"MOVE": "↑ 前进", "TURN_LEFT": "↶ 左转", "TURN_RIGHT": "↷ 右转"}.get(str(value), str(value))
+	return {"MOVE": "↑ 前进", "TURN_LEFT": "← 左转", "TURN_RIGHT": "→ 右转"}.get(str(value), str(value))
 
 func _play_phase_cue(phase: String) -> void:
 	if phase == "AUTHORING": audio_cues.play_cue("vote")
@@ -346,7 +391,7 @@ func _play_phase_cue(phase: String) -> void:
 
 func _update_connection_ui() -> void:
 	connection_label.text = ("● " if connected else "◌ ") + connection_state
-	connection_label.modulate = GREEN if connected else MUTED
+	connection_label.add_theme_color_override("font_color", GREEN if connected else MUTED)
 
 func _on_qr_completed(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
 	if result != HTTPRequest.RESULT_SUCCESS or response_code != 200:
@@ -363,6 +408,7 @@ func _apply_display_settings(next_settings: Dictionary) -> void:
 	audio_cues.set_volume(float(display_settings.get("masterVolume", 0.8)), float(display_settings.get("effectsVolume", 0.8)))
 	var qr_mode := str(display_settings.get("qrMode", "public"))
 	qr_texture.visible = qr_mode != "hidden"
+	qr_backing.visible = qr_mode != "hidden"
 	qr_hint.text = "当前为只演示模式" if qr_mode == "hidden" else ("连接现场 Wi-Fi 后扫码\n无需下载 · 无需注册" if qr_mode == "local" else "扫码提交下一条指令\n无需下载 · 无需注册")
 	if qr_mode != "hidden" and (qr_mode != previous_qr_mode or qr_texture.texture == null):
 		if http_request.get_http_client_status() == HTTPClient.STATUS_DISCONNECTED:

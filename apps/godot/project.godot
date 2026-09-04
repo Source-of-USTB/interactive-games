@@ -21,10 +21,10 @@ window/handheld/orientation=1
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 textures/default_filters/use_nearest_mipmap_filter=false
-environment/defaults/default_clear_color=Color(0.027, 0.035, 0.075, 1)
+environment/defaults/default_clear_color=Color(0.027, 0.071, 0.063, 1)
 
 [gui]
 
 theme/default_font_multichannel_signed_distance_field=true
-theme/custom_font="res://assets/fonts/SourceHanSerifCN-Regular.woff2"
+theme/custom_font="res://assets/fonts/NotoSansSC-Regular.otf"
 

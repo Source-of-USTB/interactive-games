@@ -138,19 +138,22 @@ export function AdminPage() {
   if (!token) {
     return (
       <main className="admin-login">
-        <section className="admin-login-card">
-          <p className="eyebrow">本地管理控制台</p>
-          <h1>输入现场管理密钥</h1>
-          <p>管理页面不会与玩家二维码共享入口。</p>
-          <input type="password" value={draftToken} onChange={(event) => {
+        <form className="admin-login-card" onSubmit={(event) => { event.preventDefault(); if (!verifying && draftToken) void enter(); }}>
+          <div className="login-brand"><span className="brand-mark" aria-hidden="true">⌘</span><span>CROWD CODE</span></div>
+          <p className="eyebrow">城市协作终端 / CONTROL</p>
+          <h1>欢迎回到现场控制台</h1>
+          <p>掌控游戏节奏，让每一场协作顺利发生。</p>
+          <label className="field-label" htmlFor="admin-token">现场管理密钥</label>
+          <input id="admin-token" type="password" value={draftToken} onChange={(event) => {
             setDraftToken(event.target.value);
             setLoginError(undefined);
-          }} placeholder="ADMIN_TOKEN" autoFocus />
-          {loginError && <p className="admin-login-error">{loginError}</p>}
-          <button className="primary-button" type="button" disabled={verifying || draftToken.length === 0} onClick={() => void enter()}>
+          }} placeholder="输入现场管理密钥" autoComplete="current-password" required autoFocus aria-invalid={Boolean(loginError)} aria-describedby={loginError ? "admin-login-error" : undefined} />
+          {loginError && <p id="admin-login-error" className="admin-login-error" role="alert">{loginError}</p>}
+          <button className="primary-button" type="submit" disabled={verifying || draftToken.length === 0}>
             {verifying ? "验证中…" : "进入控制台"}
           </button>
-        </section>
+          <p className="login-footnote">全场一起写代码 · 现场管理专用入口</p>
+        </form>
       </main>
     );
   }
@@ -162,7 +165,7 @@ export function AdminPage() {
   return (
     <main className="admin-shell">
       <header className="admin-header">
-        <div><p className="eyebrow">全场一起写代码</p><h1>现场控制台</h1></div>
+        <div className="brand-lockup"><span className="brand-mark" aria-hidden="true">⌘</span><div className="brand-copy"><p className="brand-en">CROWD CODE <span>/ 城市协作终端</span></p><h1 className="brand-title">现场控制台</h1></div></div>
         <ConnectionPill status={realtime.status} />
       </header>
 
@@ -267,7 +270,7 @@ export function AdminPage() {
         </section>
       </div>
 
-      {message && <div className="toast" onClick={() => setMessage(undefined)}>{message}</div>}
+      {message && <div className="toast" role="status" onClick={() => setMessage(undefined)}>{message}</div>}
       <button type="button" className="logout-button" onClick={() => clearAdminToken()}>退出管理端</button>
     </main>
   );

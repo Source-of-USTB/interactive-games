@@ -79,12 +79,15 @@ func _ease(value: float) -> float:
 func _draw() -> void:
 	if state.is_empty():
 		ui.draw_background(self)
-		ui.draw_centered(self, "正在读取城市地图…", size * 0.5, 28, Color("9baed8"))
+		ui.draw_centered(self, "正在读取城市地图…", size * 0.5, 28, Ui.MUTED)
 		return
 	var map: Dictionary = state.get("map", {})
 	var width := int(map.get("width", 8))
 	var height := int(map.get("height", 6))
-	var available := size - Vector2(72, 72)
+	var backdrop := ui.texture("city-backdrop")
+	if backdrop != null:
+		draw_texture_rect(backdrop, Rect2(Vector2.ZERO, size), false, Color(0.62, 0.82, 0.7, 0.24))
+	var available := size - Vector2(100, 90)
 	var cell := minf(available.x / float(width), available.y / float(height))
 	var board_size := Vector2(cell * width, cell * height)
 	var origin := (size - board_size) * 0.5
@@ -96,6 +99,8 @@ func _draw() -> void:
 		var tile: Dictionary = raw_tile
 		ui.draw_tile(self, tile, _cell_center(origin, cell, int(tile.get("x", 0)), int(tile.get("y", 0))), cell, active_switches, collected_chips)
 	ui.draw_robot(self, origin + (robot_position + Vector2(0.5, 0.5)) * cell, cell, robot_direction)
+	var coordinate := "%s × %s  /  城市网格" % [width, height]
+	draw_string(ThemeDB.fallback_font, Vector2(18, size.y - 5), coordinate, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Ui.MUTED)
 
 func _cell_center(origin: Vector2, cell: float, x: int, y: int) -> Vector2:
 	return origin + Vector2(x + 0.5, y + 0.5) * cell
