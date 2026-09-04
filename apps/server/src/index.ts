@@ -10,6 +10,7 @@ import type { ChoiceValue, GameMode, PublicRoundState } from "@codegame/game-cor
 import { GAME_MAPS } from "@codegame/game-core";
 import { createSessionToken, secureTokenMatches, verifySessionToken } from "./auth.js";
 import { GameDatabase } from "./database.js";
+import { DailyStatsCache } from "./daily-stats-cache.js";
 import { GameRoom, shanghaiDate, type RoomCheckpoint, type RoomTimings } from "./game-room.js";
 import { FixedWindowRateLimiter } from "./rate-limit.js";
 
@@ -107,6 +108,7 @@ app.addHook("onError", async (request, _reply, error) => {
   log("ERROR", `HTTP ${request.method} ${path} failed: ${error.message}`);
 });
 const database = new GameDatabase(config.databasePath);
+const dailyStatsCache = new DailyStatsCache(database, shanghaiDate);
 const clients = new Set<ConnectedClient>();
 const rateLimiter = new FixedWindowRateLimiter();
 let envelopeSequence = 0;
@@ -143,6 +145,7 @@ function send(client: ConnectedClient, type: string, payload: unknown, requestId
 }
 
 function broadcastState(state: PublicRoundState, reason: string): void {
+  const daily = dailyStatsCache.current();
   for (const client of clients) {
     send(client, "state.snapshot", {
       state,
@@ -150,7 +153,7 @@ function broadcastState(state: PublicRoundState, reason: string): void {
       ...(client.sessionId ? { session: room.sessionState(client.sessionId) } : {}),
       ...(client.observerOnly ? { session: { observerOnly: true } } : {}),
       ...(client.role !== "player" ? { settings: displaySettings } : {}),
-      daily: database.getDaily(shanghaiDate()),
+      daily,
     });
   }
 }
@@ -160,7 +163,7 @@ const room = new GameRoom(config.roomId, {
   onCheckpoint: (checkpoint) => database.saveCheckpoint(config.roomId, checkpoint),
   onRoundComplete: (round) => database.recordRound(round),
   onDailyIncrement: (increments) => {
-    database.incrementDaily(shanghaiDate(), increments);
+    dailyStatsCache.increment(increments);
   },
   onSystemEvent: (eventType, details) => database.recordSystemEvent(eventType, details),
 });
@@ -210,12 +213,12 @@ app.get("/api/bootstrap", async (request, reply) => {
     publicOrigin: config.publicOrigin,
     state: room.snapshot(),
     session: room.sessionState(session.id),
-    daily: database.getDaily(shanghaiDate()),
+    daily: dailyStatsCache.current(),
   };
 });
 
 app.get("/api/stats", async () => ({
-  daily: database.getDaily(shanghaiDate()),
+  daily: dailyStatsCache.current(),
   recentRounds: database.recentRounds(20),
 }));
 
@@ -341,7 +344,7 @@ websocketServer.on("connection", (socket: WebSocket, request: HttpIncomingMessag
     ...(sessionId ? { session: room.sessionState(sessionId) } : {}),
     ...(client.observerOnly ? { session: { observerOnly: true } } : {}),
     ...(role !== "player" ? { settings: displaySettings } : {}),
-    daily: database.getDaily(shanghaiDate()),
+    daily: dailyStatsCache.current(),
   });
 
   socket.on("pong", () => {
