@@ -26,10 +26,7 @@ export const PHASE_LABELS: Record<RoundPhase, string> = {
   JOIN: "扫码加入 · 查看任务",
   AUTHORING: "全场编程",
   COMPILE: "正在编译",
-  PREDICT: "预测结果",
   EXECUTE: "程序运行",
-  RESULT: "本轮结算",
-  RESET: "切换关卡",
   PAUSED: "现场暂停",
 };
 
@@ -90,7 +87,6 @@ function displayRobot(state: PublicRoundState, now: number): RobotState {
     }
     return robot;
   }
-  if (state.phase === "RESULT" && state.execution) return state.execution.state;
   return state.map.start;
 }
 

@@ -138,7 +138,6 @@ export interface GameMap {
   template: ProgramTemplateNode[];
   standardChoices: Record<string, ChoiceValue>;
   maxSteps: number;
-  parSteps: number;
   knowledgePoint: string;
   mission: string;
   previewFocus: Position[];
@@ -207,10 +206,7 @@ export type RoundPhase =
   | "JOIN"
   | "AUTHORING"
   | "COMPILE"
-  | "PREDICT"
   | "EXECUTE"
-  | "RESULT"
-  | "RESET"
   | "PAUSED";
 
 export interface VoteTally {
@@ -220,13 +216,6 @@ export interface VoteTally {
   submittedCount: number;
   locked: boolean;
   winner?: ChoiceValue;
-}
-
-export interface RoundScore {
-  missionStar: boolean;
-  algorithmStar: boolean;
-  collaborationStar: boolean;
-  badges: Array<"FIRST_RUN" | "ALL_COMMITTED" | "SHORTEST_PROGRAM">;
 }
 
 export interface PublicMap {
@@ -259,15 +248,7 @@ export interface PublicRoundState {
   currentSlotIndex: number;
   currentTally?: VoteTally;
   lockedChoices: Record<string, ChoiceValue>;
-  collaborationEnergy: number;
   trace: TraceEvent[];
-  execution?: ExecutionResult;
-  predictions: { success: number; crash: number; incomplete: number };
-  predictionOutcome?: "success" | "crash" | "incomplete";
-  score?: RoundScore;
-  resultMessage?: string;
-  showcaseStage: number;
-  showcaseTotalStages: number;
 }
 
 export interface DailyStats {

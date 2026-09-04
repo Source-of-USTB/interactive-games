@@ -32,7 +32,7 @@ export function ScreenPage() {
       </header>
       <div className="screen-layout">
         <section className="screen-map-panel">
-          <div className="map-title-row"><div><span>第 {state.map.chapter} 章 · 难度 {state.map.difficulty}</span><h2>{state.map.name}</h2></div><div className="energy-meter energy-meter--screen">{[0, 1, 2].map((index) => <span key={index} className={index < state.collaborationEnergy ? "energy-cell energy-cell--on" : "energy-cell"} />)}<small>协作能量</small></div></div>
+          <div className="map-title-row"><div><span>第 {state.map.chapter} 章 · 难度 {state.map.difficulty}</span><h2>{state.map.name}</h2></div></div>
           <MapBoard state={state} now={correctedNow} />
           {tally && (realtime.settings?.showVoteTrends ?? true) && <div className="vote-bars">
             {tally.options.map((option) => <div className="vote-bar" key={String(option.value)}><span>{typeof option.value === "number" ? `×${option.value}` : { MOVE: "↑ 前进", TURN_LEFT: "↶ 左转", TURN_RIGHT: "↷ 右转" }[option.value]}</span><div><i style={{ width: `${option.count / maxVotes * 100}%` }} /></div><b>{tally.locked ? option.count : ""}</b></div>)}
@@ -41,7 +41,6 @@ export function ScreenPage() {
         <aside className="screen-side-panel">
           <div className="qr-card">{realtime.settings?.qrMode !== "hidden" && <img key={realtime.settings?.qrMode} src={`/api/qr.png?mode=${realtime.settings?.qrMode ?? "public"}`} alt="扫码加入游戏" />}<div><strong>{realtime.settings?.qrMode === "hidden" ? "当前为只演示模式" : "扫码提交下一条指令"}</strong><span>{realtime.settings?.qrMode === "local" ? "请先连接现场 Wi-Fi" : "无需下载 · 无需注册"}</span></div></div>
           <section className="screen-program"><div className="panel-heading"><div><p className="eyebrow">共享程序</p><h2>全场正在编译</h2></div></div><ProgramPanel state={state} now={correctedNow} /></section>
-          {state.phase === "RESULT" && <div className={`screen-result ${state.score?.missionStar ? "screen-result--success" : ""}`}><h2>{state.resultMessage}</h2><p>{state.map.knowledgePoint}</p>{state.predictionOutcome && <p>有 {state.predictions[state.predictionOutcome]} 位同学预测正确</p>}<div className="screen-stars"><span className={state.score?.missionStar ? "on" : ""}>★ 任务</span><span className={state.score?.algorithmStar ? "on" : ""}>★ 算法</span><span className={state.score?.collaborationStar ? "on" : ""}>★ 协作</span></div></div>}
           {realtime.daily && <div className="screen-daily"><strong>{realtime.daily.participantSessions}</strong> 人次共同提交了 <strong>{realtime.daily.commandsSubmitted}</strong> 条指令</div>}
         </aside>
       </div>

@@ -7,9 +7,6 @@ const fastTimings = {
   voteMs: 1_100,
   revealMs: 1,
   compileMs: 1,
-  predictMs: 1,
-  resultMs: 1,
-  resetMs: 1,
 };
 
 function advance(room: GameRoom): PublicRoundState {
@@ -21,7 +18,11 @@ function advance(room: GameRoom): PublicRoundState {
 describe("GameRoom", () => {
   it("runs a complete co-code round with authoritative votes", () => {
     const checkpoints: RoomCheckpoint[] = [];
-    const room = new GameRoom("TEST", { onCheckpoint: (value) => checkpoints.push(value) }, fastTimings);
+    const completed: boolean[] = [];
+    const room = new GameRoom("TEST", {
+      onCheckpoint: (value) => checkpoints.push(value),
+      onRoundComplete: (value) => completed.push(value.success),
+    }, fastTimings);
     const map = getMapById("boot-01-first-route")!;
     room.connectPlayer("p1");
     room.start({ mode: "COCODE", mapId: map.id });
@@ -39,16 +40,45 @@ describe("GameRoom", () => {
     }
 
     expect(room.currentPhase).toBe("COMPILE");
-    advance(room); // PREDICT
-    expect(room.castPrediction("p1", "success")).toEqual({ ok: true });
     advance(room); // EXECUTE
-    advance(room); // RESULT
-    const result = room.snapshot();
-    expect(result.phase).toBe("RESULT");
-    expect(result.execution?.success).toBe(true);
-    expect(result.score?.missionStar).toBe(true);
-    expect(result.score?.collaborationStar).toBe(true);
+    const executingRoundId = room.currentRoundId;
+    advance(room); // next round JOIN
+    expect(room.currentPhase).toBe("JOIN");
+    expect(room.currentRoundId).not.toBe(executingRoundId);
+    expect(completed).toEqual([true]);
     expect(checkpoints.length).toBeGreaterThan(5);
+  });
+
+  it("records a failed execution and immediately opens the next round", () => {
+    const completed: boolean[] = [];
+    const room = new GameRoom("TEST-FAIL", {
+      onRoundComplete: (value) => completed.push(value.success),
+    }, fastTimings);
+    const map = getMapById("boot-01-first-route")!;
+    room.connectPlayer("p1");
+    room.start({ mode: "COCODE", mapId: map.id });
+    advance(room);
+
+    let wrongVoteCast = false;
+    while (room.currentPhase === "AUTHORING") {
+      const tally = room.snapshot().currentTally;
+      if (tally && !tally.locked) {
+        const expected = map.standardChoices[tally.slotId];
+        const wrong = tally.options.find((option) => option.value !== expected)?.value;
+        const vote = !wrongVoteCast && wrong !== undefined ? wrong : expected;
+        if (!wrongVoteCast && wrong !== undefined) wrongVoteCast = true;
+        expect(room.castVote("p1", tally.slotId, vote!)).toEqual({ ok: true });
+      }
+      advance(room);
+    }
+
+    expect(room.currentPhase).toBe("COMPILE");
+    advance(room);
+    const executingRoundId = room.currentRoundId;
+    advance(room);
+    expect(room.currentPhase).toBe("JOIN");
+    expect(room.currentRoundId).not.toBe(executingRoundId);
+    expect(completed).toEqual([false]);
   });
 
 });

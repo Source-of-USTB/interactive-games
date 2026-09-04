@@ -52,7 +52,6 @@ interface SequenceMapSpec {
   goal: Position;
   commands: ActionCommand[];
   tiles?: MapTile[];
-  parSteps?: number;
   knowledgePoint: string;
   mission: string;
   previewFocus?: Position[];
@@ -84,7 +83,6 @@ function sequenceMap(spec: SequenceMapSpec): GameMap {
     template,
     standardChoices,
     maxSteps: 16,
-    parSteps: spec.parSteps ?? spec.commands.length,
     knowledgePoint: spec.knowledgePoint,
     mission: spec.mission,
     previewFocus: spec.previewFocus ?? [spec.goal],

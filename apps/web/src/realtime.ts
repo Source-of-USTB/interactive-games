@@ -6,7 +6,6 @@ export type ConnectionStatus = "connecting" | "open" | "reconnecting" | "closed"
 export interface SessionView {
   observerOnly?: boolean;
   selectedVote?: string | number;
-  selectedPrediction?: "success" | "crash" | "incomplete";
 }
 
 export interface DisplaySettings {

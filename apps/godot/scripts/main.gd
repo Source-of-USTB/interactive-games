@@ -39,8 +39,7 @@ var ui := Ui.new()
 
 var phase_names := {
 	"ATTRACT": "等待启动", "JOIN": "扫码加入", "AUTHORING": "全场写代码",
-	"COMPILE": "人类编译中", "PREDICT": "预测运行结果", "EXECUTE": "代码执行中", "DEBUG_SELECT": "定位故障",
-	"DEBUG_PATCH": "修复代码", "REEXECUTE": "重新执行", "RESULT": "本轮结算", "RESET": "准备下一轮", "PAUSED": "现场已暂停"
+	"COMPILE": "人类编译中", "EXECUTE": "代码执行中", "PAUSED": "现场已暂停"
 }
 
 var header_title: Label
@@ -57,9 +56,6 @@ var qr_hint: Label
 var map_renderer
 var program_panel
 var vote_box: VBoxContainer
-var result_panel: Panel
-var result_title: Label
-var result_detail: Label
 var audio_cues
 var http_request: HTTPRequest
 
@@ -94,7 +90,6 @@ func _process(_delta: float) -> void:
 		if map_renderer.current_sequence >= 0 and map_renderer.current_sequence != last_played_trace_sequence:
 			last_played_trace_sequence = map_renderer.current_sequence
 			audio_cues.play_cue("collision" if map_renderer.current_event_type == "FAILURE" else "step")
-		program_panel.set_show_solution(str(state.get("phase", "")) == "RESULT" and not state.get("score", {}).get("missionStar", false) and corrected_now - float(state.get("phaseStartedAt", corrected_now)) >= 2000 and not state.get("solutionChoices", {}).is_empty())
 		_update_countdown(corrected_now)
 
 func _draw() -> void:
@@ -186,21 +181,6 @@ func _build_interface() -> void:
 	vote_box.size = Vector2(570, 132)
 	vote_box.add_theme_constant_override("separation", 9)
 	add_child(vote_box)
-
-	result_panel = ui.panel(Color("112b33"), 18)
-	result_panel.position = Vector2(1250, 833)
-	result_panel.size = Vector2(610, 132)
-	result_panel.visible = false
-	add_child(result_panel)
-	result_title = ui.label("任务结果", 28, GREEN)
-	result_title.position = Vector2(24, 16)
-	result_title.size = Vector2(560, 42)
-	result_panel.add_child(result_title)
-	result_detail = ui.label("", 20, Color.WHITE)
-	result_detail.position = Vector2(24, 60)
-	result_detail.size = Vector2(560, 56)
-	result_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	result_panel.add_child(result_detail)
 
 	status_label = ui.label("服务启动中", 18, MUTED)
 	status_label.position = Vector2(58, 1015)
@@ -297,7 +277,6 @@ func _apply_state(next_state: Dictionary) -> void:
 	status_label.text = "房间 %s  ·  轮次 %s  ·  %s" % [state.get("roomId", "MAIN"), state.get("roundId", "--"), state.get("mode", "COCODE")]
 	footer_label.text = "今日 %s 人次 · %s 条指令 · 修复 %s 个 Bug · 城市能量 %s" % [int(daily.get("participantSessions", 0)), int(daily.get("commandsSubmitted", 0)), int(daily.get("bugsFixed", 0)), int(daily.get("cityEnergy", 0))]
 	_update_vote_bars()
-	_update_result()
 	var tally: Dictionary = state.get("currentTally", {})
 	var locked_vote_key := str(state.get("roundId", "")) + ":" + str(tally.get("slotId", ""))
 	if tally.get("locked", false) and locked_vote_key != last_locked_vote_key:
@@ -318,7 +297,6 @@ func _update_countdown(corrected_now: float) -> void:
 
 func _update_vote_bars() -> void:
 	for child in vote_box.get_children(): child.queue_free()
-	vote_box.visible = str(state.get("phase", "")) != "RESULT"
 	var tally: Dictionary = state.get("currentTally", {})
 	if tally.is_empty():
 		var waiting := ui.label(_phase_prompt(str(state.get("phase", ""))), 22, MUTED)
@@ -354,23 +332,8 @@ func _update_vote_bars() -> void:
 		row.add_child(count)
 		vote_box.add_child(row)
 
-func _update_result() -> void:
-	var is_result := str(state.get("phase", "")) == "RESULT"
-	result_panel.visible = is_result
-	vote_box.visible = not is_result
-	if not is_result: return
-	result_title.text = str(state.get("resultMessage", "本轮完成"))
-	var score: Dictionary = state.get("score", {})
-	var stars: Array[String] = []
-	if score.get("missionStar", false): stars.append("任务★")
-	if score.get("algorithmStar", false): stars.append("算法★")
-	if score.get("collaborationStar", false): stars.append("协作★")
-	result_detail.text = "  ".join(stars) + "\n" + str(state.get("map", {}).get("knowledgePoint", ""))
-	if state.has("predictionOutcome"):
-		result_detail.text += "  ·  " + str(int(state.get("predictions", {}).get(state.predictionOutcome, 0))) + " 位同学预测正确"
-
 func _phase_prompt(phase: String) -> String:
-	return {"JOIN": "扫码加入并查看地图与任务目标", "COMPILE": "程序已锁定，正在编译", "PREDICT": "手机上预测这次运行结果", "EXECUTE": "指令正在城市中执行", "DEBUG_SELECT": "全场定位最可疑的代码行", "DEBUG_PATCH": "投票选出正确修复", "REEXECUTE": "修复完成，重新执行"}.get(phase, "等待下一个全场决策")
+	return {"JOIN": "扫码加入并查看地图与任务目标", "COMPILE": "程序已锁定，正在编译", "EXECUTE": "指令正在城市中执行"}.get(phase, "等待下一个全场决策")
 
 func _choice_label(value) -> String:
 	if value is int or value is float: return "循环 ×" + str(int(value))
@@ -379,9 +342,7 @@ func _choice_label(value) -> String:
 func _play_phase_cue(phase: String) -> void:
 	if phase == "AUTHORING": audio_cues.play_cue("vote")
 	elif phase == "COMPILE": audio_cues.play_cue("compile")
-	elif phase in ["EXECUTE", "REEXECUTE"]: audio_cues.play_cue("execute")
-	elif phase in ["DEBUG_SELECT", "DEBUG_PATCH"]: audio_cues.play_cue("debug")
-	elif phase == "RESULT" and state.get("score", {}).get("missionStar", false): audio_cues.play_cue("success")
+	elif phase == "EXECUTE": audio_cues.play_cue("execute")
 
 func _update_connection_ui() -> void:
 	connection_label.text = ("● " if connected else "◌ ") + connection_state
@@ -422,7 +383,7 @@ func _enable_offline_demo() -> void:
 
 func _tick_offline_demo(now: int) -> void:
 	if now < offline_next_phase_ms: return
-	var phases := ["JOIN", "AUTHORING", "COMPILE", "PREDICT", "EXECUTE", "RESULT"]
+	var phases := ["JOIN", "AUTHORING", "COMPILE", "EXECUTE"]
 	offline_phase_index = (offline_phase_index + 1) % phases.size()
 	state.phase = phases[offline_phase_index]
 	state.phaseStartedAt = now + server_clock_offset_ms
@@ -430,14 +391,13 @@ func _tick_offline_demo(now: int) -> void:
 	if state.phase == "AUTHORING":
 		state.currentTally = {"slotId": "move_1", "options": [{"value": "MOVE", "count": 42}, {"value": "TURN_LEFT", "count": 11}, {"value": "TURN_RIGHT", "count": 8}], "eligibleCount": 88, "submittedCount": 61, "locked": false}
 	else: state.erase("currentTally")
-	if state.phase == "RESULT": state.score = {"missionStar": true, "algorithmStar": true, "collaborationStar": true}
 	_apply_state(state)
 	offline_next_phase_ms = now + 6000
 
 func _offline_state() -> Dictionary:
 	var start := {"x": 0, "y": 3, "direction": "E", "activeSwitches": [], "collectedChips": []}
 	var finish := {"x": 4, "y": 1, "direction": "N", "activeSwitches": ["s1"], "collectedChips": ["c1"]}
-	return {"roomId": "DEMO", "roundId": "offline-preview", "mode": "COCODE", "phase": "JOIN", "phaseStartedAt": Time.get_ticks_msec(), "phaseEndsAt": Time.get_ticks_msec() + 6000, "serverNow": Time.get_ticks_msec(), "connectedPlayers": 88, "map": {"id": "demo", "name": "能量站穿越", "chapter": 2, "difficulty": 3, "width": 7, "height": 5, "start": start, "goal": {"x": 5, "y": 1}, "tiles": [{"kind": "WALL", "x": 2, "y": 2}, {"kind": "WALL", "x": 3, "y": 2}, {"kind": "CHIP", "id": "c1", "x": 2, "y": 3}, {"kind": "SWITCH", "id": "s1", "x": 4, "y": 3}, {"kind": "DOOR", "switchId": "s1", "x": 4, "y": 2}, {"kind": "CONVEYOR", "direction": "N", "x": 4, "y": 1}], "mission": "收集数据芯片，启动开关后抵达能量核心", "knowledgePoint": "用有序指令把复杂任务拆成可验证步骤", "previewFocus": []}, "slots": [{"slotId": "move_1", "line": 1, "prompt": "移动到芯片", "kind": "command", "options": ["MOVE", "TURN_LEFT", "TURN_RIGHT"]}, {"slotId": "turn_1", "line": 2, "prompt": "转向能量门", "kind": "command", "options": ["MOVE", "TURN_LEFT", "TURN_RIGHT"]}, {"slotId": "repeat", "line": 3, "prompt": "重复次数", "kind": "number", "options": [2, 3, 4]}], "currentSlotIndex": 0, "lockedChoices": {"move_1": "MOVE", "turn_1": "TURN_LEFT", "repeat": 2}, "collaborationEnergy": 3, "trace": [{"sequence": 0, "type": "ACTION", "sourceLine": 1, "command": "MOVE", "label": "前进", "before": start, "after": {"x": 2, "y": 3, "direction": "E", "activeSwitches": [], "collectedChips": ["c1"]}, "durationMs": 1100}, {"sequence": 1, "type": "ACTION", "sourceLine": 2, "command": "TURN_LEFT", "label": "左转", "before": {"x": 2, "y": 3, "direction": "E", "activeSwitches": [], "collectedChips": ["c1"]}, "after": {"x": 4, "y": 3, "direction": "N", "activeSwitches": ["s1"], "collectedChips": ["c1"]}, "durationMs": 1200}, {"sequence": 2, "type": "SUCCESS", "sourceLine": 3, "label": "到达目标", "before": finish, "after": finish, "durationMs": 900}], "debugCandidateSlots": ["move_1", "turn_1", "repeat"], "debugAttempts": 0, "predictions": {"success": 52, "crash": 18, "incomplete": 9}, "showcaseStage": 0, "showcaseTotalStages": 1}
+	return {"roomId": "DEMO", "roundId": "offline-preview", "mode": "COCODE", "phase": "JOIN", "phaseStartedAt": Time.get_ticks_msec(), "phaseEndsAt": Time.get_ticks_msec() + 6000, "serverNow": Time.get_ticks_msec(), "connectedPlayers": 88, "map": {"id": "demo", "name": "能量站穿越", "chapter": 2, "difficulty": 3, "width": 7, "height": 5, "start": start, "goal": {"x": 5, "y": 1}, "tiles": [{"kind": "WALL", "x": 2, "y": 2}, {"kind": "WALL", "x": 3, "y": 2}, {"kind": "CHIP", "id": "c1", "x": 2, "y": 3}, {"kind": "SWITCH", "id": "s1", "x": 4, "y": 3}, {"kind": "DOOR", "switchId": "s1", "x": 4, "y": 2}, {"kind": "CONVEYOR", "direction": "N", "x": 4, "y": 1}], "mission": "收集数据芯片，启动开关后抵达能量核心", "knowledgePoint": "用有序指令把复杂任务拆成可验证步骤", "previewFocus": []}, "slots": [{"slotId": "move_1", "line": 1, "prompt": "移动到芯片", "kind": "command", "options": ["MOVE", "TURN_LEFT", "TURN_RIGHT"]}, {"slotId": "turn_1", "line": 2, "prompt": "转向能量门", "kind": "command", "options": ["MOVE", "TURN_LEFT", "TURN_RIGHT"]}, {"slotId": "repeat", "line": 3, "prompt": "重复次数", "kind": "number", "options": [2, 3, 4]}], "currentSlotIndex": 0, "lockedChoices": {"move_1": "MOVE", "turn_1": "TURN_LEFT", "repeat": 2}, "trace": [{"sequence": 0, "type": "ACTION", "sourceLine": 1, "command": "MOVE", "label": "前进", "before": start, "after": {"x": 2, "y": 3, "direction": "E", "activeSwitches": [], "collectedChips": ["c1"]}, "durationMs": 1100}, {"sequence": 1, "type": "ACTION", "sourceLine": 2, "command": "TURN_LEFT", "label": "左转", "before": {"x": 2, "y": 3, "direction": "E", "activeSwitches": [], "collectedChips": ["c1"]}, "after": {"x": 4, "y": 3, "direction": "N", "activeSwitches": ["s1"], "collectedChips": ["c1"]}, "durationMs": 1200}, {"sequence": 2, "type": "SUCCESS", "sourceLine": 3, "label": "到达目标", "before": finish, "after": finish, "durationMs": 900}]}
 
 func _http_origin_from_ws(url: String) -> String:
 	var value := url.replace("wss://", "https://").replace("ws://", "http://")

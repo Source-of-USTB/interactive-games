@@ -37,9 +37,6 @@ export function AdminPage() {
     voteMs: 10,
     revealMs: 3,
     compileMs: 3,
-    predictMs: 10,
-    resultMs: 10,
-    resetMs: 3,
   });
   const [health, setHealth] = useState<Health>();
   const [message, setMessage] = useState<string>();
@@ -182,7 +179,6 @@ export function AdminPage() {
           {state && <dl className="state-list">
             <div><dt>模式</dt><dd>{modeLabel(state.mode)}</dd></div>
             <div><dt>轮次</dt><dd>{state.roundId.slice(0, 8)}</dd></div>
-            <div><dt>协作能量</dt><dd>{state.collaborationEnergy} / 3</dd></div>
             <div><dt>剩余时间</dt><dd>{Math.max(0, Math.ceil((state.phaseEndsAt - correctedNow) / 1000))} 秒</dd></div>
           </dl>}
           <div className="admin-button-grid">
@@ -290,7 +286,4 @@ const TIMING_FIELDS: Array<[string, string]> = [
   ["voteMs", "每步投票"],
   ["revealMs", "亮票展示"],
   ["compileMs", "编译过程"],
-  ["predictMs", "结果预测"],
-  ["resultMs", "结算展示"],
-  ["resetMs", "切换关卡"],
 ];

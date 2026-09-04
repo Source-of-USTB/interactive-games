@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import type { ChoiceValue, ProgramSlot, PublicRoundState } from "@codegame/game-core";
 import { ensurePlayerToken, useRealtime } from "./realtime.js";
 import {
@@ -72,15 +72,11 @@ export function JoinPage() {
           {state.phaseEndsAt > 0 && <Countdown endsAt={state.phaseEndsAt} clockOffset={realtime.clockOffset} localNow={now} />}
         </div>
         <p>{state.map.mission}</p>
-        <div className="energy-meter" aria-label={`协作能量 ${state.collaborationEnergy} / 3`}>
-          {[0, 1, 2].map((index) => <span key={index} className={index < state.collaborationEnergy ? "energy-cell energy-cell--on" : "energy-cell"} />)}
-          <small>协作能量</small>
-        </div>
       </section>
 
       {realtime.session.observerOnly && <section className="waiting-card"><h2>当前为只看模式</h2><p>现场操作位已达安全上限，你仍可同步观看本轮。</p></section>}
 
-      {(state.phase === "JOIN" || state.phase === "EXECUTE" || state.phase === "RESULT") && (
+      {(state.phase === "JOIN" || state.phase === "EXECUTE") && (
         <MapBoard state={state} now={correctedNow} compact />
       )}
 
@@ -123,27 +119,6 @@ export function JoinPage() {
         </section>
       )}
 
-      {state.phase === "PREDICT" && (
-        <section className="action-card">
-          <p className="step-kicker">编译完成</p>
-          <h2>这段程序会怎样？</h2>
-          <div className="prediction-grid">
-            {[
-              ["success", "一次成功"],
-              ["crash", "会碰撞"],
-              ["incomplete", "走不到终点"],
-            ].map(([value, label]) => (
-              <button
-                type="button"
-                className={realtime.session.selectedPrediction === value ? "prediction-button prediction-button--selected" : "prediction-button"}
-                key={value}
-                onClick={() => void submit({ type: "prediction.cast", prediction: value })}
-              >{label}</button>
-            ))}
-          </div>
-        </section>
-      )}
-
       {(state.phase === "COMPILE" || state.phase === "EXECUTE") && (
         <section className="program-card">
           <p className="step-kicker">共享程序</p>
@@ -152,9 +127,7 @@ export function JoinPage() {
         </section>
       )}
 
-      {state.phase === "RESULT" && <ResultCard state={state} />}
-
-      {(state.phase === "JOIN" || state.phase === "RESET" || state.phase === "PAUSED") && (
+      {(state.phase === "JOIN" || state.phase === "PAUSED") && (
         <section className="waiting-card">
           <div className="waiting-orbit" />
           <h2>{state.phase === "PAUSED" ? "现场暂时暂停" : state.phase === "JOIN" ? "扫码加入，查看本轮任务" : "你已加入本轮"}</h2>
@@ -193,35 +166,6 @@ export function JoinPage() {
       )}
     </main>
   );
-}
-
-function ResultCard({ state }: { state: PublicRoundState }) {
-  const score = state.score;
-  const stars = useMemo(() => [
-    ["任务", score?.missionStar],
-    ["算法", score?.algorithmStar],
-    ["协作", score?.collaborationStar],
-  ] as const, [score]);
-  return (
-    <section className={`result-card ${score?.missionStar ? "result-card--success" : ""}`}>
-      <p className="step-kicker">本轮完成</p>
-      <h2>{state.resultMessage}</h2>
-      <div className="stars-row">
-        {stars.map(([label, active]) => <div key={label} className={active ? "star star--on" : "star"}><span>★</span><small>{label}</small></div>)}
-      </div>
-      {score && score.badges.length > 0 && <p className="badges">{score.badges.map(badgeLabel).join(" · ")}</p>}
-      {state.predictionOutcome && <p className="prediction-result">运行前有 <strong>{state.predictions[state.predictionOutcome]}</strong> 位同学预测正确</p>}
-      <p className="knowledge-point">{state.map.knowledgePoint}</p>
-    </section>
-  );
-}
-
-function badgeLabel(value: string): string {
-  return {
-    FIRST_RUN: "一次过",
-    ALL_COMMITTED: "全员提交",
-    SHORTEST_PROGRAM: "最短程序",
-  }[value] ?? value;
 }
 
 function StatusPage({ title, detail, status = "connecting" }: {

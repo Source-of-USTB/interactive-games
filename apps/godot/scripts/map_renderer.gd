@@ -36,17 +36,10 @@ func playback_at(corrected_now_ms: float) -> void:
 	if state.is_empty():
 		return
 	var phase := str(state.get("phase", "ATTRACT"))
-	var executable := phase in ["EXECUTE", "REEXECUTE", "RESULT"]
-	if not executable:
+	if phase != "EXECUTE":
 		return
 	phase_time_ms = maxf(0.0, corrected_now_ms - float(state.get("phaseStartedAt", corrected_now_ms)))
-	var teaching_replay: bool = phase == "RESULT" and not bool(state.get("score", {}).get("missionStar", false)) and phase_time_ms >= 2000 and not state.get("solutionTrace", []).is_empty()
-	var trace: Array = state.get("solutionTrace", []) if teaching_replay else state.get("trace", [])
-	if teaching_replay:
-		phase_time_ms -= 2000.0
-		var solution_duration := 0.0
-		for raw_solution_event in trace: solution_duration += float(raw_solution_event.get("durationMs", 400))
-		phase_time_ms *= maxf(1.0, solution_duration / 6000.0)
+	var trace: Array = state.get("trace", [])
 	var elapsed := 0.0
 	current_line = -1
 	current_sequence = -1

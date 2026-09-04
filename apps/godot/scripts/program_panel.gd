@@ -2,7 +2,6 @@ extends Control
 
 var state: Dictionary = {}
 var active_line := -1
-var show_solution := false
 
 const CODE_BG := Color("0d1530")
 const MUTED := Color("8da2cf")
@@ -20,25 +19,19 @@ func set_active_line(line: int) -> void:
 	active_line = line
 	queue_redraw()
 
-func set_show_solution(value: bool) -> void:
-	if show_solution == value:
-		return
-	show_solution = value
-	queue_redraw()
-
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), CODE_BG, true)
 	if state.is_empty():
 		return
 	var slots: Array = state.get("slots", [])
-	var locked: Dictionary = state.get("solutionChoices", {}) if show_solution else state.get("lockedChoices", {})
+	var locked: Dictionary = state.get("lockedChoices", {})
 	var y := 36.0
-	_draw_text("标准解回放  /  SOLUTION" if show_solution else "共享程序  /  PROGRAM", Vector2(28, y), 20, GREEN if show_solution else MUTED)
+	_draw_text("共享程序  /  PROGRAM", Vector2(28, y), 20, MUTED)
 	y += 40.0
 	if slots.is_empty():
 		_draw_text("此关无需填写参数", Vector2(28, y), 24, MUTED)
 		return
-	var line_height := minf(66.0, maxf(34.0, (size.y - 118.0) / float(slots.size())))
+	var line_height := minf(66.0, maxf(34.0, (size.y - 76.0) / float(slots.size())))
 	for raw_slot in slots:
 		var slot: Dictionary = raw_slot
 		var line := int(slot.get("line", 0))
@@ -63,9 +56,6 @@ func _draw() -> void:
 		var width := ThemeDB.fallback_font.get_string_size(value_label, HORIZONTAL_ALIGNMENT_LEFT, -1, 21).x
 		_draw_text(value_label, Vector2(size.x - width - 30, y + 7), 21, value_color)
 		y += line_height
-	var energy := int(state.get("collaborationEnergy", 0))
-	y = size.y - 42
-	_draw_text("协作能量  " + "◆".repeat(energy) + "◇".repeat(maxi(0, 3 - energy)), Vector2(28, y), 20, ACCENT)
 
 func _value_label(value) -> String:
 	if value is float or value is int:

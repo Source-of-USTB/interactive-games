@@ -17,7 +17,6 @@ import {
   type ProgramSlot,
   type PublicRoundState,
   type RoundPhase,
-  type RoundScore,
   type VoteTally,
 } from "@codegame/game-core";
 import type { PersistedRound } from "./database.js";
@@ -27,9 +26,6 @@ export interface RoomTimings {
   voteMs: number;
   revealMs: number;
   compileMs: number;
-  predictMs: number;
-  resultMs: number;
-  resetMs: number;
 }
 
 export const DEFAULT_TIMINGS: RoomTimings = {
@@ -37,9 +33,6 @@ export const DEFAULT_TIMINGS: RoomTimings = {
   voteMs: 10_000,
   revealMs: 3_000,
   compileMs: 3_000,
-  predictMs: 10_000,
-  resultMs: 10_000,
-  resetMs: 3_000,
 };
 
 interface PlayerSession {
@@ -47,8 +40,6 @@ interface PlayerSession {
   joinedAt: number;
   lastSeenAt: number;
 }
-
-type Prediction = "success" | "crash" | "incomplete";
 
 export interface RoomCheckpoint {
   version: 1;
@@ -59,8 +50,6 @@ export interface RoomCheckpoint {
   phase: RoundPhase;
   lockedChoices: Record<string, ChoiceValue>;
   currentSlotIndex: number;
-  collaborationEnergy: number;
-  showcaseStage: number;
   startedAt: number;
 }
 
@@ -115,13 +104,10 @@ export class GameRoom {
   private players = new Map<string, PlayerSession>();
   private eligibleSessions = new Set<string>();
   private slotVotes = new Map<string, Map<string, ChoiceValue>>();
-  private predictionVotes = new Map<string, Prediction>();
-  private predictionOutcome: Prediction | undefined;
   private history: Array<{
     mapId: string;
     mode: GameMode;
-    firstRunSuccess: boolean;
-    finalSuccess: boolean;
+    success: boolean;
     connectedPlayers: number;
     endedAt: number;
   }> = [];
@@ -140,17 +126,8 @@ export class GameRoom {
   private currentSlotIndex = 0;
   private authoringStage: "VOTE" | "REVEAL" = "VOTE";
   private lockedChoices: Record<string, ChoiceValue> = {};
-  private collaborationEnergy = 0;
-  private highParticipationWindows = 0;
-  private totalParticipationWindows = 0;
-  private allCommitted = true;
   private program: ProgramNode[] = [];
   private execution: ExecutionResult | undefined;
-  private firstRunSuccess = false;
-  private score: RoundScore | undefined;
-  private resultMessage: string | undefined;
-  private showcaseStage = 0;
-  private roundRecorded = false;
 
   constructor(
     roomId: string,
@@ -187,7 +164,6 @@ export class GameRoom {
       throw new Error(`Map ${requestedMap.id} does not support mode ${requestedMode}`);
     }
     const fallback = requestedMap ?? chooseNextRound(this.history, this.connectedPlayers, randomUUID()).map;
-    this.showcaseStage = 0;
     this.beginRound(fallback, requestedMode);
   }
 
@@ -202,8 +178,6 @@ export class GameRoom {
     this.startedAt = checkpoint.startedAt;
     this.lockedChoices = { ...checkpoint.lockedChoices };
     this.currentSlotIndex = checkpoint.currentSlotIndex;
-    this.collaborationEnergy = checkpoint.collaborationEnergy;
-    this.showcaseStage = checkpoint.showcaseStage;
     this.phase = checkpoint.phase;
 
     const compiled = compileProgram(this.map.template, this.lockedChoices, this.map.maxSteps);
@@ -214,7 +188,6 @@ export class GameRoom {
 
     if (this.phase === "AUTHORING") this.openAuthoringSlot(Date.now());
     else if (this.phase === "EXECUTE") this.enterExecution();
-    else if (this.phase === "RESULT") this.setPhase("RESULT", this.timings.resultMs, "restored-result");
     else this.setPhase("JOIN", this.timings.joinMs, "restored-safe-boundary");
     this.hooks.onSystemEvent("room.restored", { roomId: this.roomId, roundId: this.roundId });
     return true;
@@ -268,14 +241,6 @@ export class GameRoom {
     return { ok: true };
   }
 
-  castPrediction(sessionId: string, prediction: Prediction): { ok: boolean; reason?: string } {
-    if (this.phase !== "PREDICT") return { ok: false, reason: "当前不是预测阶段" };
-    if (!(["success", "crash", "incomplete"] as string[]).includes(prediction)) return { ok: false, reason: "非法预测" };
-    this.predictionVotes.set(sessionId, prediction);
-    this.emit("prediction-cast");
-    return { ok: true };
-  }
-
   pause(): void {
     if (this.phase === "PAUSED") return;
     const now = Date.now();
@@ -313,8 +278,7 @@ export class GameRoom {
 
   updateTimings(values: Partial<RoomTimings>): void {
     const names: (keyof RoomTimings)[] = [
-      "joinMs", "voteMs", "revealMs", "compileMs", "predictMs",
-      "resultMs", "resetMs",
+      "joinMs", "voteMs", "revealMs", "compileMs",
     ];
     for (const name of names) {
       const value = values[name];
@@ -334,18 +298,11 @@ export class GameRoom {
     } else if (this.phase === "AUTHORING") {
       if (this.authoringStage === "VOTE") this.lockCurrentSlot(now);
       else this.advanceAuthoring(now);
-    } else if (this.phase === "COMPILE") this.setPhase("PREDICT", this.timings.predictMs, "compile-complete");
-    else if (this.phase === "PREDICT") this.enterExecution();
+    } else if (this.phase === "COMPILE") this.enterExecution();
     else if (this.phase === "EXECUTE") this.finishExecution();
-    else if (this.phase === "RESULT") this.afterResult();
-    else if (this.phase === "RESET") this.startNextDirectedRound();
   }
 
   snapshot(now = Date.now()): PublicRoundState {
-    const predictionCounts = { success: 0, crash: 0, incomplete: 0 };
-    if (this.phase !== "PREDICT") {
-      for (const prediction of this.predictionVotes.values()) predictionCounts[prediction] += 1;
-    }
     const state: PublicRoundState = {
       roomId: this.roomId,
       roundId: this.roundId,
@@ -359,37 +316,21 @@ export class GameRoom {
       slots: collectSlots(this.map.template),
       currentSlotIndex: this.currentSlotIndex,
       lockedChoices: { ...this.lockedChoices },
-      collaborationEnergy: this.collaborationEnergy,
       trace: this.execution?.trace ?? [],
-      predictions: predictionCounts,
-      showcaseStage: this.showcaseStage,
-      showcaseTotalStages: 1,
     };
     if (this.previousPhase) state.previousPhase = this.previousPhase;
     const tally = this.currentTally(now);
     if (tally) state.currentTally = tally;
-    if (this.execution) state.execution = this.execution;
-    if (this.score) state.score = this.score;
-    if (this.predictionOutcome) state.predictionOutcome = this.predictionOutcome;
-    if (this.resultMessage) state.resultMessage = this.resultMessage;
     return state;
   }
 
-  sessionState(sessionId: string): {
-    selectedVote?: ChoiceValue;
-    selectedPrediction?: Prediction;
-  } {
-    const value: {
-      selectedVote?: ChoiceValue;
-      selectedPrediction?: Prediction;
-    } = {};
+  sessionState(sessionId: string): { selectedVote?: ChoiceValue } {
+    const value: { selectedVote?: ChoiceValue } = {};
     const currentSlot = this.currentSlot();
     if (currentSlot) {
       const selectedVote = this.slotVotes.get(currentSlot.slotId)?.get(sessionId);
       if (selectedVote !== undefined) value.selectedVote = selectedVote;
     }
-    const prediction = this.predictionVotes.get(sessionId);
-    if (prediction) value.selectedPrediction = prediction;
     return value;
   }
 
@@ -403,8 +344,6 @@ export class GameRoom {
       phase: this.phase,
       lockedChoices: { ...this.lockedChoices },
       currentSlotIndex: this.currentSlotIndex,
-      collaborationEnergy: this.collaborationEnergy,
-      showcaseStage: this.showcaseStage,
       startedAt: this.startedAt,
     };
     return checkpoint;
@@ -419,20 +358,10 @@ export class GameRoom {
     this.currentSlotIndex = 0;
     this.authoringStage = "VOTE";
     this.slotVotes.clear();
-    this.predictionVotes.clear();
     this.eligibleSessions.clear();
     this.lockedChoices = {};
-    this.collaborationEnergy = 0;
-    this.highParticipationWindows = 0;
-    this.totalParticipationWindows = 0;
-    this.allCommitted = true;
     this.program = [];
     this.execution = undefined;
-    this.firstRunSuccess = false;
-    this.predictionOutcome = undefined;
-    this.score = undefined;
-    this.resultMessage = undefined;
-    this.roundRecorded = false;
     this.setPhase("JOIN", this.timings.joinMs, "round-started");
   }
 
@@ -469,14 +398,6 @@ export class GameRoom {
     if (winner === undefined) throw new Error(`Slot ${slot.slotId} has no options`);
     this.lockedChoices[slot.slotId] = winner;
     const submitted = this.slotVotes.get(slot.slotId)?.size ?? 0;
-    const eligible = this.eligibleSessions.size;
-    const participation = eligible > 0 ? submitted / eligible : 0;
-    this.totalParticipationWindows += 1;
-    if (participation >= 0.7) {
-      this.highParticipationWindows += 1;
-      this.collaborationEnergy = Math.min(3, this.collaborationEnergy + 1);
-    }
-    if (eligible === 0 || submitted < eligible) this.allCommitted = false;
     this.hooks.onDailyIncrement({ commandsSubmitted: submitted, cityEnergy: submitted });
     this.authoringStage = "REVEAL";
     this.phaseStartedAt = now;
@@ -502,12 +423,10 @@ export class GameRoom {
         executedActionCount: 0,
         collectedAllChips: false,
       };
-      this.resultMessage = compiled.issues[0]?.message ?? "程序编译失败";
-      this.enterResult(false);
-      return;
+    } else {
+      this.program = compiled.program;
+      this.execution = executeProgram(this.map, this.program);
     }
-    this.program = compiled.program;
-    this.execution = executeProgram(this.map, this.program);
     this.setPhase("COMPILE", this.timings.compileMs, reason);
   }
 
@@ -516,78 +435,37 @@ export class GameRoom {
       this.beginCompile("execution-required-recompile");
       return;
     }
-    this.predictionOutcome = this.execution.success
-      ? "success"
-      : this.execution.failureType === "COLLISION" || this.execution.failureType === "OUT_OF_BOUNDS" || this.execution.failureType === "MECHANISM"
-        ? "crash"
-        : "incomplete";
-    const duration = Math.min(16_000, Math.max(10_000, traceDuration(this.execution.trace) + 1_000));
+    const duration = Math.min(16_000, Math.max(1_000, traceDuration(this.execution.trace) + 250));
     this.setPhase("EXECUTE", duration, "execution-started");
   }
 
   private finishExecution(): void {
-    if (!this.execution) {
-      this.enterResult(false);
-      return;
-    }
-    if (this.phase === "EXECUTE") this.firstRunSuccess = this.execution.success;
-    this.enterResult(this.execution.success);
-  }
-
-  private enterResult(success: boolean): void {
-    const execution = this.execution;
-    const collaborationRatio = this.totalParticipationWindows > 0
-      ? this.highParticipationWindows / this.totalParticipationWindows
-      : 0;
-    const badges: RoundScore["badges"] = [];
-    if (success) badges.push("FIRST_RUN");
-    if (this.allCommitted && this.totalParticipationWindows > 0) badges.push("ALL_COMMITTED");
-    if (success && execution && execution.executedActionCount <= this.map.parSteps) badges.push("SHORTEST_PROGRAM");
-    this.score = {
-      missionStar: success,
-      algorithmStar: Boolean(success && execution && execution.executedActionCount <= this.map.parSteps),
-      collaborationStar: collaborationRatio >= 0.7,
-      badges,
-    };
-    this.resultMessage = success
-      ? "编译成功，机器人已抵达！"
-      : this.resultMessage ?? "本轮未通过。";
-    this.setPhase("RESULT", this.timings.resultMs, "round-result");
-
-    if (!this.roundRecorded) {
-      this.roundRecorded = true;
-      const endedAt = Date.now();
-      this.history.push({
-        mapId: this.map.id,
-        mode: this.mode,
-        firstRunSuccess: this.firstRunSuccess,
-        finalSuccess: success,
-        connectedPlayers: this.maxConnectedPlayers,
-        endedAt,
-      });
-      this.history = this.history.slice(-20);
-      this.hooks.onRoundComplete({
-        roundId: this.roundId,
-        roomId: this.roomId,
-        mapId: this.map.id,
-        mode: this.mode,
-        startedAt: this.startedAt,
-        endedAt,
-        connectedPlayers: this.maxConnectedPlayers,
-        firstRunSuccess: this.firstRunSuccess,
-        finalSuccess: success,
-        choices: Object.fromEntries(Object.entries(this.lockedChoices).map(([key, value]) => [key, value])),
-        score: this.score,
-      });
-      this.hooks.onDailyIncrement({
-        roundsPlayed: 1,
-        successfulDeliveries: success ? 1 : 0,
-      });
-    }
-  }
-
-  private afterResult(): void {
-    this.setPhase("RESET", this.timings.resetMs, "result-complete");
+    const success = this.execution?.success ?? false;
+    const endedAt = Date.now();
+    this.history.push({
+      mapId: this.map.id,
+      mode: this.mode,
+      success,
+      connectedPlayers: this.maxConnectedPlayers,
+      endedAt,
+    });
+    this.history = this.history.slice(-20);
+    this.hooks.onRoundComplete({
+      roundId: this.roundId,
+      roomId: this.roomId,
+      mapId: this.map.id,
+      mode: this.mode,
+      startedAt: this.startedAt,
+      endedAt,
+      connectedPlayers: this.maxConnectedPlayers,
+      success,
+      choices: Object.fromEntries(Object.entries(this.lockedChoices).map(([key, value]) => [key, value])),
+    });
+    this.hooks.onDailyIncrement({
+      roundsPlayed: 1,
+      successfulDeliveries: success ? 1 : 0,
+    });
+    this.startNextDirectedRound();
   }
 
   private startNextDirectedRound(): void {
@@ -598,7 +476,6 @@ export class GameRoom {
       mapId: decision.map.id,
       reason: decision.reason,
     });
-    this.showcaseStage = 0;
     this.beginRound(decision.map, decision.mode);
   }
 

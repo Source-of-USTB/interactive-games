@@ -4,8 +4,7 @@ import type { GameMap, GameMode } from "./types.js";
 export interface RoundHistoryEntry {
   mapId: string;
   mode: GameMode;
-  firstRunSuccess: boolean;
-  finalSuccess: boolean;
+  success: boolean;
   connectedPlayers: number;
   endedAt: number;
 }
@@ -40,10 +39,9 @@ export function chooseNextRound(
   connectedPlayers: number,
   seed: string,
 ): DirectorDecision {
-  const recent = history.slice(-5);
   const recentMapIds = new Set(history.slice(-4).map((entry) => entry.mapId));
-  const firstRunStreak = recentStreak(history, (entry) => entry.firstRunSuccess);
-  const failedStreak = recentStreak(history, (entry) => !entry.finalSuccess);
+  const successStreak = recentStreak(history, (entry) => entry.success);
+  const failedStreak = recentStreak(history, (entry) => !entry.success);
   const mode: GameMode = "COCODE";
   let targetDifficulty = 2;
   let reason = "保持默认共同编程节奏";
@@ -51,12 +49,12 @@ export function chooseNextRound(
   if (failedStreak >= 2) {
     targetDifficulty = 1;
     reason = "连续两轮未通过，回到启动区恢复节奏";
-  } else if (connectedPlayers >= 8 && firstRunStreak >= 2) {
+  } else if (connectedPlayers >= 8 && successStreak >= 2) {
     targetDifficulty = 2;
-    reason = "连续首次通关，继续基础共同编程轮次";
-  } else if (firstRunStreak >= 2) {
+    reason = "连续通关，继续基础共同编程轮次";
+  } else if (successStreak >= 2) {
     targetDifficulty = 3;
-    reason = "连续首次通关，提高一级难度";
+    reason = "连续通关，提高一级难度";
   }
 
   const modeMaps = mapsForMode(mode);

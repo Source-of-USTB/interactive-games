@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import type { DailyStats, GameMode, RoundScore } from "@codegame/game-core";
+import type { DailyStats, GameMode } from "@codegame/game-core";
 
 export interface PersistedRound {
   roundId: string;
@@ -11,10 +11,8 @@ export interface PersistedRound {
   startedAt: number;
   endedAt: number;
   connectedPlayers: number;
-  firstRunSuccess: boolean;
-  finalSuccess: boolean;
+  success: boolean;
   choices: Record<string, string | number>;
-  score: RoundScore;
 }
 
 export class GameDatabase {
@@ -39,10 +37,8 @@ export class GameDatabase {
         started_at INTEGER NOT NULL,
         ended_at INTEGER NOT NULL,
         connected_players INTEGER NOT NULL,
-        first_run_success INTEGER NOT NULL,
-        final_success INTEGER NOT NULL,
-        choices_json TEXT NOT NULL,
-        score_json TEXT NOT NULL
+        success INTEGER NOT NULL,
+        choices_json TEXT NOT NULL
       );
       CREATE TABLE IF NOT EXISTS daily_stats (
         date TEXT PRIMARY KEY,
@@ -59,6 +55,37 @@ export class GameDatabase {
         event_type TEXT NOT NULL,
         details_json TEXT NOT NULL
       );
+    `);
+    this.migrateRounds();
+  }
+
+  private migrateRounds(): void {
+    const columns = this.db.prepare("PRAGMA table_info(rounds)").all() as Array<{ name: string }>;
+    if (columns.some((column) => column.name === "success")) return;
+    this.db.exec(`
+      BEGIN IMMEDIATE;
+      ALTER TABLE rounds RENAME TO rounds_legacy;
+      CREATE TABLE rounds (
+        round_id TEXT PRIMARY KEY,
+        room_id TEXT NOT NULL,
+        map_id TEXT NOT NULL,
+        mode TEXT NOT NULL,
+        started_at INTEGER NOT NULL,
+        ended_at INTEGER NOT NULL,
+        connected_players INTEGER NOT NULL,
+        success INTEGER NOT NULL,
+        choices_json TEXT NOT NULL
+      );
+      INSERT INTO rounds (
+        round_id, room_id, map_id, mode, started_at, ended_at, connected_players,
+        success, choices_json
+      )
+      SELECT
+        round_id, room_id, map_id, mode, started_at, ended_at, connected_players,
+        final_success, choices_json
+      FROM rounds_legacy;
+      DROP TABLE rounds_legacy;
+      COMMIT;
     `);
   }
 
@@ -81,8 +108,8 @@ export class GameDatabase {
     this.db.prepare(`
       INSERT OR REPLACE INTO rounds (
         round_id, room_id, map_id, mode, started_at, ended_at, connected_players,
-        first_run_success, final_success, choices_json, score_json
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        success, choices_json
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       round.roundId,
       round.roomId,
@@ -91,10 +118,8 @@ export class GameDatabase {
       round.startedAt,
       round.endedAt,
       round.connectedPlayers,
-      round.firstRunSuccess ? 1 : 0,
-      round.finalSuccess ? 1 : 0,
+      round.success ? 1 : 0,
       JSON.stringify(round.choices),
-      JSON.stringify(round.score),
     );
   }
 
@@ -146,10 +171,8 @@ export class GameDatabase {
       startedAt: Number(row.started_at),
       endedAt: Number(row.ended_at),
       connectedPlayers: Number(row.connected_players),
-      firstRunSuccess: Boolean(row.first_run_success),
-      finalSuccess: Boolean(row.final_success),
+      success: Boolean(row.success),
       choices: JSON.parse(String(row.choices_json)) as Record<string, string | number>,
-      score: JSON.parse(String(row.score_json)) as RoundScore,
     }));
   }
 

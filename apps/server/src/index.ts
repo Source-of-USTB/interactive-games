@@ -55,7 +55,6 @@ interface ClientMessage {
   requestId?: string;
   slotId?: string;
   value?: ChoiceValue;
-  prediction?: "success" | "crash" | "incomplete";
   command?: string;
   mapId?: string;
   mode?: GameMode;
@@ -63,9 +62,6 @@ interface ClientMessage {
   joinMs?: number;
   revealMs?: number;
   compileMs?: number;
-  predictMs?: number;
-  resultMs?: number;
-  resetMs?: number;
   sequence?: number;
   qrMode?: DisplaySettings["qrMode"];
   masterVolume?: number;
@@ -227,12 +223,12 @@ app.get("/api/config", async (request, reply) => {
 app.get("/api/stats/export.csv", async (request, reply) => {
   const token = request.headers.authorization?.replace(/^Bearer\s+/i, "");
   if (!secureTokenMatches(config.adminToken, token)) return reply.code(401).send({ error: "未授权" });
-  const header = ["round_id", "room_id", "map_id", "mode", "started_at", "ended_at", "connected_players", "first_run_success", "final_success", "choices_json", "score_json"];
+  const header = ["round_id", "room_id", "map_id", "mode", "started_at", "ended_at", "connected_players", "success", "choices_json"];
   const escape = (value: unknown): string => `"${String(value).replaceAll('"', '""')}"`;
   const rows = database.exportRounds().map((round) => [
     round.roundId, round.roomId, round.mapId, round.mode, new Date(round.startedAt).toISOString(),
-    new Date(round.endedAt).toISOString(), round.connectedPlayers, round.firstRunSuccess,
-    round.finalSuccess, JSON.stringify(round.choices), JSON.stringify(round.score),
+    new Date(round.endedAt).toISOString(), round.connectedPlayers, round.success,
+    JSON.stringify(round.choices),
   ].map(escape).join(","));
   const csv = `\uFEFF${header.join(",")}\n${rows.join("\n")}\n`;
   return reply.type("text/csv; charset=utf-8").header("Content-Disposition", "attachment; filename=codegame-rounds.csv").send(csv);
@@ -405,8 +401,6 @@ function handleMessage(client: ConnectedClient, message: ClientMessage): void {
     let result: { ok: boolean; reason?: string } = { ok: false, reason: "未知玩家消息" };
     if (message.type === "vote.cast" && message.slotId && message.value !== undefined) {
       result = room.castVote(client.sessionId, message.slotId, message.value);
-    } else if (message.type === "prediction.cast" && message.prediction) {
-      result = room.castPrediction(client.sessionId, message.prediction);
     }
     send(client, result.ok ? "request.ack" : "request.error", result.ok ? { ok: true } : { error: result.reason }, requestId);
     return;
@@ -425,9 +419,6 @@ function handleMessage(client: ConnectedClient, message: ClientMessage): void {
         if (message.voteMs !== undefined) timings.voteMs = message.voteMs;
         if (message.revealMs !== undefined) timings.revealMs = message.revealMs;
         if (message.compileMs !== undefined) timings.compileMs = message.compileMs;
-        if (message.predictMs !== undefined) timings.predictMs = message.predictMs;
-        if (message.resultMs !== undefined) timings.resultMs = message.resultMs;
-        if (message.resetMs !== undefined) timings.resetMs = message.resetMs;
         room.updateTimings(timings);
       }
       else if (message.command === "display") {
