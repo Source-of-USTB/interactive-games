@@ -9,6 +9,7 @@ import type { IncomingMessage as HttpIncomingMessage } from "node:http";
 import type { ChoiceValue, GameMode, PublicRoundState } from "@codegame/game-core";
 import { GAME_MAPS } from "@codegame/game-core";
 import { createSessionToken, secureTokenMatches, verifySessionToken } from "./auth.js";
+import { BroadcastScheduler } from "./broadcast-scheduler.js";
 import { GameDatabase } from "./database.js";
 import { DailyStatsCache } from "./daily-stats-cache.js";
 import { GameRoom, shanghaiDate, type RoomCheckpoint, type RoomTimings } from "./game-room.js";
@@ -158,8 +159,18 @@ function broadcastState(state: PublicRoundState, reason: string): void {
   }
 }
 
+const broadcastScheduler = new BroadcastScheduler<PublicRoundState>({
+  delayMs: 25,
+  coalescedReasons: new Set(["vote-cast", "player-connected", "player-disconnected"]),
+  publishNow: broadcastState,
+});
+
+function publishState(state: PublicRoundState, reason: string): void {
+  broadcastScheduler.publish(state, reason);
+}
+
 const room = new GameRoom(config.roomId, {
-  onChange: broadcastState,
+  onChange: publishState,
   onCheckpoint: (checkpoint) => database.saveCheckpoint(config.roomId, checkpoint),
   onRoundComplete: (round) => database.recordRound(round),
   onDailyIncrement: (increments) => {
@@ -442,7 +453,7 @@ function handleMessage(client: ConnectedClient, message: ClientMessage): void {
         if (message.showVoteTrends !== undefined) displaySettings.showVoteTrends = message.showVoteTrends;
         if (message.demoMode !== undefined) displaySettings.demoMode = message.demoMode;
         database.recordSystemEvent("admin.display", displaySettings);
-        broadcastState(room.snapshot(), "display-settings-updated");
+        publishState(room.snapshot(), "display-settings-updated");
       }
       else throw new Error("未知管理命令");
       send(client, "request.ack", { ok: true }, requestId);
@@ -505,6 +516,7 @@ const shutdown = async (signal: string): Promise<void> => {
   log("INFO", `Shutting down after ${signal}.`);
   clearInterval(tickTimer);
   clearInterval(heartbeatTimer);
+  broadcastScheduler.dispose();
   database.saveCheckpoint(config.roomId, room.checkpoint());
   for (const client of clients) client.socket.close(1001, "Server shutdown");
   await app.close();
