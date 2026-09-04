@@ -38,7 +38,7 @@ var display_settings: Dictionary = {"qrMode": "public", "masterVolume": 0.8, "ef
 var ui := Ui.new()
 
 var phase_names := {
-	"ATTRACT": "等待启动", "JOIN": "扫码加入 · 查看任务", "AUTHORING": "全场写代码",
+	"ATTRACT": "等待启动", "JOIN": "扫码加入", "AUTHORING": "全场写代码",
 	"COMPILE": "人类编译中", "PREDICT": "预测运行结果", "EXECUTE": "代码执行中", "DEBUG_SELECT": "定位故障",
 	"DEBUG_PATCH": "修复代码", "REEXECUTE": "重新执行", "RESULT": "本轮结算", "RESET": "准备下一轮", "PAUSED": "现场已暂停"
 }
