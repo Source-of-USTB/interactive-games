@@ -1,4 +1,4 @@
-import { appendFileSync, existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import Fastify from "fastify";
@@ -14,6 +14,7 @@ import { GameDatabase } from "./database.js";
 import { DailyStatsCache } from "./daily-stats-cache.js";
 import { GameRoom, shanghaiDate, type RoomCheckpoint, type RoomTimings } from "./game-room.js";
 import { FixedWindowRateLimiter } from "./rate-limit.js";
+import { createServerLogger } from "./server-logger.js";
 
 const config = {
   host: process.env.HOST ?? "0.0.0.0",
@@ -81,17 +82,7 @@ const app = Fastify({ logger: false, trustProxy: ["127.0.0.1", "::1"] });
 const serverLogDir = process.env.RUN_LOG_DIR ?? resolve(process.cwd(), "runtime", "logs", process.env.RUN_ID ?? "standalone");
 mkdirSync(serverLogDir, { recursive: true });
 const serverLogPath = resolve(serverLogDir, "server.log");
-
-function log(level: "INFO" | "WARN" | "ERROR", message: string): void {
-  const levels = { INFO: 0, WARN: 1, ERROR: 2 };
-  const configuredLevel = config.logLevel.toUpperCase() as keyof typeof levels;
-  if (levels[level] < (levels[configuredLevel] ?? levels.INFO)) return;
-  const line = `${new Date().toISOString()} [${level}] ${message}`;
-  const colors = { INFO: "\u001b[36m", WARN: "\u001b[33m", ERROR: "\u001b[31m" };
-  const reset = "\u001b[0m";
-  console.log(process.stdout.isTTY ? `${colors[level]}${line}${reset}` : line);
-  appendFileSync(serverLogPath, `${line}\n`);
-}
+const logger = createServerLogger({ path: serverLogPath, level: config.logLevel });
 
 const requestStartedAt = new WeakMap<object, number>();
 app.addHook("onRequest", async (request) => {
@@ -101,12 +92,12 @@ app.addHook("onRequest", async (request) => {
 app.addHook("onResponse", async (request, reply) => {
   const path = request.url.split("?", 1)[0];
   const elapsed = Math.max(0, Date.now() - (requestStartedAt.get(request) ?? Date.now()));
-  log("INFO", `HTTP ${request.method} ${path} -> ${reply.statusCode} (${elapsed} ms)`);
+  logger.log("INFO", `HTTP ${request.method} ${path} -> ${reply.statusCode} (${elapsed} ms)`);
 });
 
 app.addHook("onError", async (request, _reply, error) => {
   const path = request.url.split("?", 1)[0];
-  log("ERROR", `HTTP ${request.method} ${path} failed: ${error.message}`);
+  logger.log("ERROR", `HTTP ${request.method} ${path} failed: ${error.message}`);
 });
 const database = new GameDatabase(config.databasePath);
 const dailyStatsCache = new DailyStatsCache(database, shanghaiDate);
@@ -400,7 +391,7 @@ websocketServer.on("connection", (socket: WebSocket, request: HttpIncomingMessag
 
 function handleMessage(client: ConnectedClient, message: ClientMessage): void {
   const requestId = message.requestId;
-  if (message.type) log("INFO", `WS ${client.role} ${message.type}`);
+  if (message.type) logger.log("DEBUG", `WS ${client.role} ${message.type}`);
   if (message.type === "ping") {
     send(client, "pong", { now: Date.now() }, requestId);
     return;
@@ -513,13 +504,14 @@ const heartbeatTimer = setInterval(() => {
 }, 15_000);
 
 const shutdown = async (signal: string): Promise<void> => {
-  log("INFO", `Shutting down after ${signal}.`);
+  logger.log("INFO", `Shutting down after ${signal}.`);
   clearInterval(tickTimer);
   clearInterval(heartbeatTimer);
   broadcastScheduler.dispose();
   database.saveCheckpoint(config.roomId, room.checkpoint());
   for (const client of clients) client.socket.close(1001, "Server shutdown");
   await app.close();
+  await logger.flush();
   database.close();
   process.exit(0);
 };
@@ -528,5 +520,5 @@ process.on("SIGINT", () => void shutdown("SIGINT"));
 process.on("SIGTERM", () => void shutdown("SIGTERM"));
 
 await app.listen({ host: config.host, port: config.port });
-log("INFO", `Game server listening on http://${config.host}:${config.port}.`);
-log("INFO", `Public URL: ${config.publicOrigin}; room: ${config.roomId}.`);
+logger.log("INFO", `Game server listening on http://${config.host}:${config.port}.`);
+logger.log("INFO", `Public URL: ${config.publicOrigin}; room: ${config.roomId}.`);
