@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { getMapById, type PublicRoundState } from "@codegame/game-core";
 import { GameRoom, type RoomCheckpoint } from "./game-room.js";
 
@@ -79,6 +79,32 @@ describe("GameRoom", () => {
     expect(room.currentPhase).toBe("JOIN");
     expect(room.currentRoundId).not.toBe(executingRoundId);
     expect(completed).toEqual([false]);
+  });
+
+  it("accepts votes until the deadline and rejects them once voting has ended", () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(10_000);
+      const room = new GameRoom("TEST-DEADLINE", {}, fastTimings);
+      room.connectPlayer("p1");
+      room.start({ mode: "COCODE", mapId: "boot-01-first-route" });
+      advance(room);
+
+      const tally = room.snapshot().currentTally!;
+      const value = tally.options[0]!.value;
+      const deadline = room.snapshot().phaseEndsAt;
+
+      vi.setSystemTime(deadline - 1);
+      expect(room.castVote("p1", tally.slotId, value)).toEqual({ ok: true });
+
+      vi.setSystemTime(deadline);
+      expect(room.castVote("p1", tally.slotId, value)).toEqual({ ok: false, reason: "投票已结束" });
+
+      room.tick(deadline);
+      expect(room.castVote("p1", tally.slotId, value)).toEqual({ ok: false, reason: "投票已结束" });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
 });

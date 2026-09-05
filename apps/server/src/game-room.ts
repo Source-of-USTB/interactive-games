@@ -226,8 +226,8 @@ export class GameRoom {
 
   castVote(sessionId: string, slotId: string, value: ChoiceValue): { ok: boolean; reason?: string } {
     const now = Date.now();
-    if (this.phase !== "AUTHORING" || this.authoringStage !== "VOTE") return { ok: false, reason: "当前不是编程投票阶段" };
-    if (this.phaseEndsAt - now <= 1_000) return { ok: false, reason: "本步已经锁票" };
+    if (this.phase !== "AUTHORING") return { ok: false, reason: "当前不是编程投票阶段" };
+    if (this.authoringStage !== "VOTE" || now >= this.phaseEndsAt) return { ok: false, reason: "投票已结束" };
     const slot = this.currentSlot();
     if (!slot || slot.slotId !== slotId) return { ok: false, reason: "不是当前程序空位" };
     if (!slot.options.some((option) => choicesEqual(option, value))) return { ok: false, reason: "非法选项" };
