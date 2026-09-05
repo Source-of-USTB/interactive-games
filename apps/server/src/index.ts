@@ -15,6 +15,13 @@ import { DailyStatsCache } from "./daily-stats-cache.js";
 import { GameRoom, shanghaiDate, type RoomCheckpoint, type RoomTimings } from "./game-room.js";
 import { FixedWindowRateLimiter } from "./rate-limit.js";
 import { createServerLogger } from "./server-logger.js";
+import {
+  audienceForStateChange,
+  mergeStateAudience,
+  shouldReceiveStateSnapshot,
+  type ClientRole,
+  type StateAudience,
+} from "./state-broadcast-policy.js";
 
 const config = {
   host: process.env.HOST ?? "0.0.0.0",
@@ -30,8 +37,6 @@ const config = {
   databasePath: process.env.DATABASE_PATH ?? resolve(process.cwd(), "runtime", "game.sqlite"),
   maxPlayers: Number(process.env.MAX_PLAYERS ?? 300),
 };
-
-type ClientRole = "player" | "screen" | "admin";
 
 interface ConnectedClient {
   socket: WebSocket;
@@ -131,9 +136,16 @@ function send(client: ConnectedClient, type: string, payload: unknown, requestId
   }));
 }
 
-function broadcastState(state: PublicRoundState, reason: string): void {
+interface StatePublication {
+  state: PublicRoundState;
+  audience: StateAudience;
+}
+
+function broadcastState(publication: StatePublication, reason: string): void {
+  const { state, audience } = publication;
   const daily = dailyStatsCache.current();
   for (const client of clients) {
+    if (!shouldReceiveStateSnapshot(client.role, audience)) continue;
     send(client, "state.snapshot", {
       state,
       reason,
@@ -145,14 +157,18 @@ function broadcastState(state: PublicRoundState, reason: string): void {
   }
 }
 
-const broadcastScheduler = new BroadcastScheduler<PublicRoundState>({
+const broadcastScheduler = new BroadcastScheduler<StatePublication>({
   delayMs: 25,
   coalescedReasons: new Set(["vote-cast", "player-connected", "player-disconnected"]),
+  mergePending: (previous, next) => ({
+    state: next.state,
+    audience: mergeStateAudience(previous.audience, next.audience),
+  }),
   publishNow: broadcastState,
 });
 
 function publishState(state: PublicRoundState, reason: string): void {
-  broadcastScheduler.publish(state, reason);
+  broadcastScheduler.publish({ state, audience: audienceForStateChange(reason) }, reason);
 }
 
 const room = new GameRoom(config.roomId, {
@@ -407,7 +423,12 @@ function handleMessage(client: ConnectedClient, message: ClientMessage): void {
     if (message.type === "vote.cast" && message.slotId && message.value !== undefined) {
       result = room.castVote(client.sessionId, message.slotId, message.value);
     }
-    send(client, result.ok ? "request.ack" : "request.error", result.ok ? { ok: true } : { error: result.reason }, requestId);
+    send(
+      client,
+      result.ok ? "request.ack" : "request.error",
+      result.ok ? { ok: true, session: room.sessionState(client.sessionId) } : { error: result.reason },
+      requestId,
+    );
     return;
   }
 

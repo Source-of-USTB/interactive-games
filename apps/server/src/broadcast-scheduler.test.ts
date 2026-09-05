@@ -38,4 +38,25 @@ describe("BroadcastScheduler", () => {
     expect(published).toEqual([{ state: 3, reason: "authoring-slot-locked" }]);
     vi.useRealTimers();
   });
+
+  it("merges pending state when a merge strategy is provided", () => {
+    vi.useFakeTimers();
+    const published: Array<{ value: number; includePlayers: boolean }> = [];
+    const scheduler = new BroadcastScheduler<{ value: number; includePlayers: boolean }>({
+      delayMs: 25,
+      coalescedReasons: new Set(["vote-cast", "player-connected"]),
+      mergePending: (previous, next) => ({
+        value: next.value,
+        includePlayers: previous.includePlayers || next.includePlayers,
+      }),
+      publishNow: (state) => published.push(state),
+    });
+
+    scheduler.publish({ value: 1, includePlayers: true }, "player-connected");
+    scheduler.publish({ value: 2, includePlayers: false }, "vote-cast");
+    vi.advanceTimersByTime(25);
+
+    expect(published).toEqual([{ value: 2, includePlayers: true }]);
+    vi.useRealTimers();
+  });
 });

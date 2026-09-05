@@ -110,7 +110,8 @@ export function useRealtime({ role, token, enabled = true }: UseRealtimeOptions)
             setSettings(payload.settings);
           } else if (envelope.type === "request.ack" || envelope.type === "request.error") {
             const requestId = envelope.requestId;
-            const payload = envelope.payload as { error?: string };
+            const payload = envelope.payload as { error?: string; session?: SessionView };
+            if (envelope.type === "request.ack" && payload.session) setSession(payload.session);
             if (requestId) {
               pendingRef.current.get(requestId)?.finish(envelope.type === "request.ack", payload.error);
               pendingRef.current.delete(requestId);

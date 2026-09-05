@@ -6,6 +6,7 @@ interface PendingBroadcast<State> {
 export interface BroadcastSchedulerOptions<State> {
   delayMs: number;
   coalescedReasons: ReadonlySet<string>;
+  mergePending?: (previous: State, next: State) => State;
   publishNow: (state: State, reason: string) => void;
 }
 
@@ -22,7 +23,12 @@ export class BroadcastScheduler<State> {
       return;
     }
 
-    this.pending = { state, reason };
+    this.pending = {
+      state: this.pending && this.options.mergePending
+        ? this.options.mergePending(this.pending.state, state)
+        : state,
+      reason,
+    };
     if (this.timer) return;
 
     this.timer = setTimeout(() => {
