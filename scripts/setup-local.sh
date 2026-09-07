@@ -8,6 +8,11 @@ source scripts/logging.sh
 ensure_run_context "$project_dir"
 start_run_logging "$RUN_LOG_DIR/run.log"
 
+if ! command -v godot >/dev/null 2>&1; then
+  echo "[ERROR] Missing command: godot. Install Godot before running setup." >&2
+  exit 1
+fi
+
 if [[ -f .env ]]; then
   echo "[INFO] .env already exists; leaving it unchanged."
 else
@@ -30,4 +35,6 @@ fi
 
 run_interactive pnpm install
 run_interactive pnpm build
+echo "[INFO] Importing Godot textures and fonts."
+godot --headless --path apps/godot --import
 echo "[INFO] Setup complete. Run scripts/start-local.sh to start the local stack."

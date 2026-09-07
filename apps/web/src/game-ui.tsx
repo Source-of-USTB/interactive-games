@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import type {
   ActionCommand,
   ChoiceValue,
@@ -105,31 +105,32 @@ export function MapBoard({ state, now, compact = false }: { state: PublicRoundSt
     <div
       className={`map-board ${compact ? "map-board--compact" : ""}`}
       style={{
+        "--map-ratio": `${state.map.width} / ${state.map.height}`,
         gridTemplateColumns: `repeat(${state.map.width}, minmax(0, 1fr))`,
         gridTemplateRows: `repeat(${state.map.height}, minmax(0, 1fr))`,
-      }}
+      } as CSSProperties}
       role="img"
-      aria-label={`${state.map.name} 地图，机器人位于第 ${robot.y + 1} 行第 ${robot.x + 1} 列`}
+      aria-label={`${state.map.name} 地图，机器人位于第 ${robot.y + 1} 行第 ${robot.x + 1} 列，朝${{ N: "北", E: "东", S: "南", W: "西" }[robot.direction]}`}
     >
       {Array.from({ length: state.map.width * state.map.height }, (_, index) => {
         const x = index % state.map.width;
         const y = Math.floor(index / state.map.width);
         const key = `${x}:${y}`;
-        const tiles = tilesByPosition.get(key) ?? [];
-        const primary = tiles[0];
-        const visual = primary ? tileVisual(primary) : undefined;
+        const tiles = (tilesByPosition.get(key) ?? []).filter((tile) => tile.kind !== "CHIP" || !robot.collectedChips.includes(tile.id));
+        const visuals = tiles.map(tileVisual);
         const isGoal = state.map.goal.x === x && state.map.goal.y === y;
         const isRobot = robot.x === x && robot.y === y;
-        const activeDoor = primary?.kind === "DOOR" && robot.activeSwitches.includes(primary.switchId);
+        const activeDoor = tiles.some((tile) => tile.kind === "DOOR" && robot.activeSwitches.includes(tile.switchId));
+        const activeSwitch = tiles.some((tile) => tile.kind === "SWITCH" && robot.activeSwitches.includes(tile.id));
         return (
           <div
             key={key}
-            className={`map-tile ${visual?.className ?? ""} ${isGoal ? "tile--goal" : ""} ${activeDoor ? "tile--door-open" : ""} ${isRobot ? "tile--occupied" : ""}`}
-            aria-label={[visual?.label, isGoal ? "终点" : undefined, isRobot ? "机器人" : undefined].filter(Boolean).join("，")}
+            className={`map-tile ${visuals.map((visual) => visual.className).join(" ")} ${isGoal ? "tile--goal" : ""} ${activeDoor ? "tile--door-open" : ""} ${activeSwitch ? "tile--switch-active" : ""} ${isRobot ? "tile--occupied" : ""}`}
+            aria-label={[...visuals.map((visual) => visual.label), isGoal ? "终点" : undefined, activeDoor ? "门已开启" : undefined, activeSwitch ? "开关已激活" : undefined, isRobot ? "机器人" : undefined].filter(Boolean).join("，")}
           >
-            {isGoal && <span className="goal-core" />}
-            {visual?.text && <span className="tile-symbol">{visual.text}</span>}
-            {isRobot && <span className="robot" aria-hidden="true">{directionGlyph(robot.direction)}</span>}
+            {isGoal && <><span className="goal-core" /><span className="goal-label">终点</span></>}
+            {visuals.map((visual, tileIndex) => visual.text && <span key={tileIndex} className={`tile-symbol tile-symbol--${tiles[tileIndex]?.kind.toLowerCase()}`} style={{ "--tile-layer": tileIndex } as CSSProperties}>{visual.text}</span>)}
+            {isRobot && <span className="robot" aria-hidden="true"><img src="/assets/robot.webp" alt="" draggable={false} /><span className={`robot-direction robot-direction--${robot.direction}`}>{directionGlyph(robot.direction)}</span></span>}
           </div>
         );
       })}
@@ -164,16 +165,18 @@ export function ProgramPanel({ state, now, selectable, selected, onSelect }: {
         const choice = visibleChoices[slot.slotId];
         const canSelect = selectable?.includes(slot.slotId) ?? false;
         const isSelected = slot.slotId === selected;
+        const isWriting = state.phase === "AUTHORING" && state.slots[state.currentSlotIndex]?.slotId === slot.slotId && choice === undefined;
         return (
           <button
             type="button"
-            className={`program-line ${slot.line === currentLine ? "program-line--active" : ""} ${canSelect ? "program-line--selectable" : ""} ${isSelected ? "program-line--selected" : ""}`}
+            className={`program-line ${slot.line === currentLine ? "program-line--active" : ""} ${isWriting ? "program-line--writing" : ""} ${choice !== undefined ? "program-line--locked" : ""} ${canSelect ? "program-line--selectable" : ""} ${isSelected ? "program-line--selected" : ""}`}
             key={slot.slotId}
             disabled={!canSelect}
             onClick={() => onSelect?.(slot.slotId)}
           >
             <span className="line-number">{String(slot.line).padStart(2, "0")}</span>
-            <span className="line-command">{choice === undefined ? "等待全场选择…" : `${choiceGlyph(choice)} ${choiceLabel(choice)}`}</span>
+            <span className="line-command">{choice === undefined ? isWriting ? "正在选择指令…" : "等待全场选择…" : `${choiceGlyph(choice)} ${choiceLabel(choice)}`}</span>
+            {!canSelect && <span className="line-state">{slot.line === currentLine ? "运行中" : isWriting ? "投票中" : choice !== undefined ? "已写入" : "待编写"}</span>}
             {canSelect && <span className="program-line-badge">可疑行</span>}
           </button>
         );

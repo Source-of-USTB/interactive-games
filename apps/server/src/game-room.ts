@@ -398,7 +398,7 @@ export class GameRoom {
     if (winner === undefined) throw new Error(`Slot ${slot.slotId} has no options`);
     this.lockedChoices[slot.slotId] = winner;
     const submitted = this.slotVotes.get(slot.slotId)?.size ?? 0;
-    this.hooks.onDailyIncrement({ commandsSubmitted: submitted, cityEnergy: submitted });
+    this.hooks.onDailyIncrement({ commandsSubmitted: submitted });
     this.authoringStage = "REVEAL";
     this.phaseStartedAt = now;
     this.phaseEndsAt = now + this.timings.revealMs;
