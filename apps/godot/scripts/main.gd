@@ -224,7 +224,7 @@ func _build_interface() -> void:
 	status_label.position = Vector2(48, 1020)
 	status_label.size = Vector2(750, 30)
 	add_child(status_label)
-	footer_label = ui.label("今日 0 人次 · 0 条指令 · 城市能量 0", 16, MUTED)
+	footer_label = ui.label("今日 0 人次 · 0 条指令", 16, MUTED)
 	footer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	footer_label.position = Vector2(850, 1020)
 	footer_label.size = Vector2(1022, 30)
@@ -317,7 +317,7 @@ func _apply_state(next_state: Dictionary) -> void:
 	phase_label.add_theme_stylebox_override("normal", ui.surface(Color(phase_color, 0.08), 12, Color(phase_color, 0.23)))
 	player_label.text = str(int(state.get("connectedPlayers", 0))) + " 人参与"
 	status_label.text = "房间 %s  ·  轮次 %s  ·  %s" % [state.get("roomId", "MAIN"), state.get("roundId", "--"), state.get("mode", "COCODE")]
-	footer_label.text = "今日 %s 人次 · %s 条指令 · 修复 %s 个 Bug · 城市能量 %s" % [int(daily.get("participantSessions", 0)), int(daily.get("commandsSubmitted", 0)), int(daily.get("bugsFixed", 0)), int(daily.get("cityEnergy", 0))]
+	footer_label.text = "今日 %s 人次 · %s 条指令" % [int(daily.get("participantSessions", 0)), int(daily.get("commandsSubmitted", 0))]
 	_update_vote_bars()
 	var tally: Dictionary = state.get("currentTally", {})
 	var locked_vote_key := str(state.get("roundId", "")) + ":" + str(tally.get("slotId", ""))
@@ -423,7 +423,7 @@ func _enable_offline_demo() -> void:
 	connection_state = "离线演示"
 	_update_connection_ui()
 	state = _offline_state()
-	daily = {"participantSessions": 128, "commandsSubmitted": 416, "bugsFixed": 37, "cityEnergy": 860}
+	daily = {"participantSessions": 128, "commandsSubmitted": 416}
 	_apply_state(state)
 	offline_next_phase_ms = Time.get_ticks_msec() + 6000
 

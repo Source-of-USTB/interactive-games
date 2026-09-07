@@ -128,10 +128,8 @@ export class GameDatabase {
     const columns: Record<keyof Omit<DailyStats, "date">, string> = {
       participantSessions: "participant_sessions",
       commandsSubmitted: "commands_submitted",
-      bugsFixed: "bugs_fixed",
       successfulDeliveries: "successful_deliveries",
       roundsPlayed: "rounds_played",
-      cityEnergy: "city_energy",
     };
     for (const [key, amount] of Object.entries(increments)) {
       if (typeof amount !== "number" || amount === 0) continue;
@@ -148,10 +146,8 @@ export class GameDatabase {
       date,
       participantSessions: Number(row.participant_sessions),
       commandsSubmitted: Number(row.commands_submitted),
-      bugsFixed: Number(row.bugs_fixed),
       successfulDeliveries: Number(row.successful_deliveries),
       roundsPlayed: Number(row.rounds_played),
-      cityEnergy: Number(row.city_energy),
     };
   }
 

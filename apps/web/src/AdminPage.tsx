@@ -231,14 +231,13 @@ export function AdminPage() {
         </section>
 
         <section className="admin-panel admin-panel--stats">
-          <div className="panel-heading"><div><p className="eyebrow">今日聚合</p><h2>科技城进度</h2></div></div>
+          <div className="panel-heading"><div><p className="eyebrow">今日聚合</p><h2>参与统计</h2></div></div>
           <div className="stat-grid">
             <strong>{realtime.daily?.participantSessions ?? 0}<small>参与人次</small></strong>
             <strong>{realtime.daily?.commandsSubmitted ?? 0}<small>提交指令</small></strong>
-            <strong>{realtime.daily?.bugsFixed ?? 0}<small>修复 Bug</small></strong>
+            <strong>{realtime.daily?.roundsPlayed ?? 0}<small>完成轮次</small></strong>
             <strong>{realtime.daily?.successfulDeliveries ?? 0}<small>成功送达</small></strong>
           </div>
-          <div className="city-progress"><span style={{ width: `${Math.min(100, (realtime.daily?.cityEnergy ?? 0) % 101)}%` }} /></div>
           <button className="secondary-button" type="button" onClick={() => void exportStats()}>导出匿名轮次 CSV</button>
         </section>
 

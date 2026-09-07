@@ -88,7 +88,6 @@ export function ScreenPage() {
       </div>
 
       <footer className="screen-footer">
-        <div className="energy-summary"><span className="energy-icon" aria-hidden="true">ϟ</span><div><span>今日城市能量</span><strong>{realtime.daily ? realtime.daily.cityEnergy.toLocaleString() : "—"}<small> ENERGY</small></strong></div></div>
         <div className="footer-stat"><strong>{realtime.daily ? realtime.daily.participantSessions.toLocaleString() : "—"}</strong><span>参与人次</span></div>
         <div className="footer-stat"><strong>{realtime.daily ? realtime.daily.commandsSubmitted.toLocaleString() : "—"}</strong><span>已提交指令</span></div>
         <p className="footer-note">一起思考 · 一起编程 · 一起点亮科技城</p>

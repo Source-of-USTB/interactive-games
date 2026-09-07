@@ -255,8 +255,6 @@ export interface DailyStats {
   date: string;
   participantSessions: number;
   commandsSubmitted: number;
-  bugsFixed: number;
   successfulDeliveries: number;
   roundsPlayed: number;
-  cityEnergy: number;
 }

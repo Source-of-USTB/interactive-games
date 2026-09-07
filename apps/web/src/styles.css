@@ -109,8 +109,8 @@ p { line-height: 1.65; }
 .program-progress > div:first-child { display: flex; justify-content: space-between; align-items: center; font-size: .72rem; color: var(--muted); margin-bottom: .6rem; }
 .program-progress strong { color: var(--green); font: 1.2rem ui-monospace,monospace; }
 .program-progress small { color: var(--muted); font-size: .8rem; }
-.progress-track, .city-progress { height: 4px; background: #2b4233; border-radius: 4px; overflow: hidden; }
-.progress-track > span, .city-progress > span { display: block; height: 100%; background: var(--green); transition: width .3s ease; }
+.progress-track { height: 4px; background: #2b4233; border-radius: 4px; overflow: hidden; }
+.progress-track > span { display: block; height: 100%; background: var(--green); transition: width .3s ease; }
 .program-progress > p { margin: .65rem 0 0; font-size: .7rem; color: var(--muted); }
 
 /* Main display */
@@ -152,11 +152,6 @@ p { line-height: 1.65; }
 .vote-bar i { display: block; height: 100%; background: var(--cyan); transition: width .25s; }
 .vote-bar b { grid-row: 1; grid-column: 2; color: var(--green); }
 .screen-footer { display: flex; align-items: center; gap: 2rem; min-height: 90px; height: 12vh; color: var(--muted); }
-.energy-summary { display: flex; align-items: center; gap: .8rem; padding-right: 2rem; border-right: 1px solid var(--line); }
-.energy-icon { color: var(--green); font-size: 2.5rem; }
-.energy-summary div > span { display: block; font-size: .65rem; }
-.energy-summary strong { color: var(--green); font: 1.5rem/1.5 ui-monospace,monospace; }
-.energy-summary small { font-size: .6rem; color: var(--muted); }
 .footer-stat strong { display: block; color: #dcebdd; font: 1.4rem/1.5 ui-monospace,monospace; }
 .footer-stat span { font-size: .65rem; }
 .footer-note { margin: 0 0 0 auto; font-size: .7rem; }
@@ -292,12 +287,11 @@ input[type="range"] { width: 100%; accent-color: var(--green); }
 .stat-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: .6rem; }
 .stat-grid strong { padding: .8rem; border: 1px solid var(--line); border-radius: .5rem; color: var(--green); font: 1.5rem ui-monospace,monospace; }
 .stat-grid small { display: block; margin-top: .5rem; color: var(--muted); font: .6rem "City Sans",sans-serif; }
-.city-progress { margin: 1rem 0; }
 .logout-button { display: block; margin: 1.5rem auto 0; min-height: 2.75rem; border: 0; color: var(--muted); background: transparent; font-size: .75rem; }
 
 @media (min-width: 1700px) { .screen-program { padding: 1.7rem; } .screen-layout { gap: 1.5rem; } .screen-side-panel { gap: 1.3rem; } .screen-program .line-state,.map-legend { font-size: .8rem; } .screen-program .program-progress p { font-size: .85rem; } .screen-program .program-progress { padding-top: 1.6rem; } }
 @media (max-width: 1100px) { .screen-round .live-label,.brand-en span { display: none; } .screen-layout { grid-template-columns: minmax(0,1.4fr) minmax(300px,1fr); } .screen-footer { gap: 1.2rem; } .footer-note { display: none; } .screen-footer > .connection-pill { margin-left: auto; } .qr-instruction { display: none; } .timing-grid { grid-template-columns: 1fr; } }
-@media (max-width: 760px) { .screen-shell { padding: 0 1rem; } .screen-header { min-height: 105px; height: auto; flex-wrap: wrap; padding: 1rem 0; gap: .7rem; } .screen-meta { gap: .75rem; } .screen-phase { padding: .5rem .7rem; font-size: .7rem; } .screen-round strong { font-size: 1.3rem; } .screen-layout { height: auto; min-height: 0; grid-template-columns: 1fr; } .screen-map-panel { min-height: 450px; } .map-stage { min-height: 300px; } .screen-program .program-panel { max-height: none; } .screen-program { min-height: 400px; } .screen-footer { height: auto; min-height: 110px; flex-wrap: wrap; gap: 1rem; padding: 1rem 0; } .energy-summary { padding-right: 1rem; } .qr-card > img { width: 100px; } .admin-shell { padding: 1rem; } .health-grid { grid-template-columns: repeat(2,1fr); } .admin-columns { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { .screen-shell { padding: 0 1rem; } .screen-header { min-height: 105px; height: auto; flex-wrap: wrap; padding: 1rem 0; gap: .7rem; } .screen-meta { gap: .75rem; } .screen-phase { padding: .5rem .7rem; font-size: .7rem; } .screen-round strong { font-size: 1.3rem; } .screen-layout { height: auto; min-height: 0; grid-template-columns: 1fr; } .screen-map-panel { min-height: 450px; } .map-stage { min-height: 300px; } .screen-program .program-panel { max-height: none; } .screen-program { min-height: 400px; } .screen-footer { height: auto; min-height: 110px; flex-wrap: wrap; gap: 1rem; padding: 1rem 0; } .qr-card > img { width: 100px; } .admin-shell { padding: 1rem; } .health-grid { grid-template-columns: repeat(2,1fr); } .admin-columns { grid-template-columns: 1fr; } }
 @media (max-width: 380px) { .join-shell { padding-inline: .75rem; } .mobile-header .brand-title { font-size: .9rem; } .mobile-header .brand-mark { width: 2.2rem; height: 2.2rem; } .mobile-tools { gap: .2rem; } .mobile-tools .connection-pill { font-size: .56rem; } .help-button { width: 2.75rem; } .choice-grid { gap: .4rem; } .choice-label { font-size: .78rem; } .phase-row { gap: .4rem; } .mission-card,.action-card { padding: .9rem; } .stat-grid { grid-template-columns: repeat(2,1fr); } .tutorial-card { padding: 1.2rem; } }
 @media (prefers-reduced-motion: reduce) { *,*::before,*::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
 

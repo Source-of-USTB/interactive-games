@@ -7,10 +7,8 @@ function stats(date: string, commandsSubmitted = 0): DailyStats {
     date,
     participantSessions: 0,
     commandsSubmitted,
-    bugsFixed: 0,
     successfulDeliveries: 0,
     roundsPlayed: 0,
-    cityEnergy: 0,
   };
 }
 

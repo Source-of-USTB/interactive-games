@@ -127,7 +127,7 @@ export function JoinPage() {
               );
             })}
           </div>
-          <p className="look-up">{hasSubmitted ? "选择已收到，抬头看看全场的决定" : "点击即可提交 · 锁票前可改选"}</p>
+          <p className="look-up">{hasSubmitted ? "选择已收到，抬头看看全场的决定" : "点击即可提交"}</p>
         </section>
       )}
 
