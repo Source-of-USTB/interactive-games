@@ -1,6 +1,6 @@
 # 全场一起写代码
 
-方案 C 的正式可运行工程。现场电脑运行唯一权威服务和 Godot 大屏；同学扫码后用手机 Web 投票，管理员用本机 Web 控制台主持。
+方案 C 的正式可运行工程。一台现场电脑跑**后台主程序**和**正式大屏程序**；同学扫码后用手机网页投票，管理员用本机浏览器里的管理页主持。
 
 ## 已实现的完整范围
 
@@ -9,20 +9,20 @@
 - 编译、带源码行的确定性执行轨迹和错误分类，执行结束后自动切换下一关。
 - 当日科技城聚合进度和自动关卡导演。
 - React 手机端、本地管理端、浏览器备用大屏，以及 Godot 4 正式大屏。
-- SQLite WAL 检查点恢复、匿名聚合统计和 CSV 导出；WebSocket 断线重连、完整快照、幂等重试和大屏看门狗暂停。
+- SQLite WAL 检查点恢复、匿名聚合统计和 CSV 导出；断线自动重连、全量快照、幂等重试和大屏失联自动暂停。
 - 公网隧道主入口、本地 Wi-Fi 备入口、Godot 无服务离线演示三级降级。
 
 ## 技术拓扑
 
 | 部分 | 技术 | 本机入口 |
 |---|---|---|
-| 权威服务 | Node.js 24+ / Fastify / WebSocket / SQLite | `:3000` |
-| 玩法核心 | TypeScript 纯函数编译器与执行器 | 服务内 |
+| 后台主程序 | Node.js 24+ / Fastify / WebSocket / SQLite | `:3000` |
+| 玩法核心 | TypeScript 纯函数编译器与执行器 | 主程序内 |
 | 手机/管理/备用大屏 | React 19 / Vite | `/join`, `/admin`, `/screen` |
 | 正式大屏 | Godot 4.7，程序化 2D 演出与音效 | 本机窗口/全屏 |
-| 公网扫码 | Cloudflare named tunnel | 只转发玩家路由 |
+| 公网扫码 | Cloudflare named tunnel | 只转发同学手机页 |
 
-Node.js 决定票数、程序和胜负。Godot 只消费快照与轨迹，不能宣布通关。
+主程序决定票数、程序和胜负。大屏只消费快照与轨迹，不能宣布通关。
 
 ## 首次在本电脑启动
 
@@ -43,7 +43,7 @@ Node.js 决定票数、程序和胜负。Godot 只消费快照与轨迹，不能
 - 本地备用模式：需要。管理端把二维码切到“本地 Wi-Fi”，手机连入同一台关闭客户端隔离的路由器。
 - 无服务模式：不接收手机。Godot 播放内置演示，现场不会黑屏。
 
-公网隧道需要一次性配置域名和 Cloudflare 凭据，见 [现场运行手册](docs/现场运行手册.md)。完成后用 `./scripts/start-public.sh`。
+公网隧道需要一次性在 Cloudflare 面板建远程隧道并拿 Token，见 [现场运行手册](docs/现场运行手册.md)，按手册「方式 A」启动（cloudflared Token 隧道 + 玩家入口 + start-local.sh）。
 
 未配域名时，默认使用不依赖 Cloudflare 的 `./scripts/start-easy-public.sh`。它通过系统自带的 SSH 向 localhost.run 申请免费随机 HTTPS 地址，无需注册或安装客户端；隧道只连接独立的玩家网关，管理页、大屏页、统计和导出均不对外暴露。启动 Godot 前会完整验证健康检查、玩家会话、Bootstrap 和 WebSocket。请保持终端打开，失败时运行 `./scripts/diagnose-easy-public.sh`，日志位于 `runtime/logs/`。
 
@@ -56,7 +56,7 @@ pnpm check                         # 类型、自动测试和生产构建
 pnpm start                         # 只运行已构建的服务
 pnpm load-test                     # 服务已运行时模拟 100 人逐空位锁票
 godot --headless --path apps/godot --quit-after 2
-docker compose up --build          # 可选：容器运行 Web/服务端
+docker compose up --build          # 可选：容器运行网页端与后台主程序
 ```
 
 自动测试包括地图标准解、编译/执行规则和共编全流程。百人压测会校验每个空位的 100 张有效票、获胜指令、协议序号和 ACK P95。
@@ -65,7 +65,7 @@ docker compose up --build          # 可选：容器运行 Web/服务端
 
 ```text
 packages/game-core/   共享类型、6 张地图、编译器、执行器、自动导演
-apps/server/          权威房间、实时协议、SQLite、安全和压测
+apps/server/          房间逻辑、实时协议、SQLite、安全和压测
 apps/web/             手机参与端、管理端、浏览器备用大屏
 apps/godot/           Godot 正式大屏、地图/轨迹动画、程序高亮、音效、离线演示
 scripts/              初始化、预检、本地/公网启动
