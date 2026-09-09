@@ -115,6 +115,8 @@ fi
 
 export GAME_SERVER_WS="ws://127.0.0.1:${PORT:-3000}/ws"
 echo "[INFO] Admin: http://127.0.0.1:${PORT:-3000}/admin"
+echo "[INFO] Importing Godot textures and fonts."
+godot --headless --path apps/godot --import
 echo "[INFO] Starting Godot display. Press F11 for fullscreen."
 set +e
 godot --path apps/godot --fullscreen &
