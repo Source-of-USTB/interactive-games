@@ -155,11 +155,11 @@ func _build_interface() -> void:
 	promo_caption.position = Vector2(26, 47)
 	promo_host.add_child(promo_caption)
 	promo_texture = TextureRect.new()
-	promo_texture.texture = ui.texture("poster")
-	promo_texture.position = Vector2(18, 76)
-	promo_texture.size = Vector2(364, 515)
 	promo_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	promo_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	promo_texture.position = Vector2(18, 76)
+	promo_texture.size = Vector2(364, 515)
+	promo_texture.texture = ui.texture("poster")
 	promo_texture.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	promo_host.add_child(promo_texture)
 	var promo_note := ui.label("协会宣传  ·  科技交流", 15, MUTED)
