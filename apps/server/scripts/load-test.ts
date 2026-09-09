@@ -1,7 +1,20 @@
 import { performance } from "node:perf_hooks";
+import { readFileSync, existsSync } from "node:fs";
 import { WebSocket } from "ws";
 import { getMapById, type ChoiceValue, type PublicRoundState } from "@codegame/game-core";
 import { createSessionToken } from "../src/auth.js";
+
+for (const candidate of ["../../.env", "../.env", ".env"]) {
+  if (existsSync(candidate)) {
+    for (const line of readFileSync(candidate, "utf8").split("\n")) {
+      const match = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/.exec(line);
+      if (!match) continue;
+      const key = match[1];
+      if (process.env[key] === undefined) process.env[key] = match[2].replace(/^["']|["']$/g, "");
+    }
+    break;
+  }
+}
 
 const playerCount = Number(process.env.LOAD_PLAYERS ?? 100);
 const origin = process.env.LOAD_ORIGIN ?? "http://127.0.0.1:3000";
