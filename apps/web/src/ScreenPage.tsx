@@ -57,6 +57,16 @@ export function ScreenPage() {
       </header>
 
       <div className="screen-layout">
+        <aside className="screen-promo-panel" aria-labelledby="promo-title">
+          <div className="screen-promo-heading">
+            <div><p className="eyebrow">COMMUNITY PARTNER</p><h2 id="promo-title">索思科技协会</h2></div>
+            <span className="promo-year">2026</span>
+          </div>
+          <div className="screen-promo-frame">
+            <img src="/assets/poster.png" alt="索思科技协会 2026 宣传单" draggable={false} />
+          </div>
+        </aside>
+
         <section className="screen-map-panel" aria-labelledby="map-title">
           <div className="map-title-row">
             <div className="map-heading"><span className="panel-index">{String(state.map.chapter).padStart(2, "0")}</span><div><p className="eyebrow">第 {state.map.chapter} 章 <span>· 难度 {state.map.difficulty}</span></p><h2 id="map-title">{state.map.name}</h2></div></div>

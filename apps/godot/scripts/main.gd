@@ -55,6 +55,7 @@ var footer_label: Label
 var qr_texture: TextureRect
 var qr_backing: Panel
 var qr_hint: Label
+var promo_texture: TextureRect
 var map_renderer
 var program_panel
 var vote_box: VBoxContainer
@@ -143,26 +144,50 @@ func _build_interface() -> void:
 	map_meta_label.size = Vector2(640, 38)
 	add_child(map_meta_label)
 
+	var promo_host := ui.panel(Color(PANEL, 0.96), 22)
+	promo_host.position = Vector2(48, 165)
+	promo_host.size = Vector2(400, 820)
+	add_child(promo_host)
+	var promo_title := ui.label("索思科技协会", 21, ui.INK)
+	promo_title.position = Vector2(26, 16)
+	promo_host.add_child(promo_title)
+	var promo_caption := ui.label("ASSOCIATION  /  2026", 13, MUTED)
+	promo_caption.position = Vector2(26, 47)
+	promo_host.add_child(promo_caption)
+	promo_texture = TextureRect.new()
+	promo_texture.texture = ui.texture("poster")
+	promo_texture.position = Vector2(18, 76)
+	promo_texture.size = Vector2(364, 515)
+	promo_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	promo_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	promo_texture.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	promo_host.add_child(promo_texture)
+	var promo_note := ui.label("协会宣传  ·  科技交流", 15, MUTED)
+	promo_note.position = Vector2(26, 774)
+	promo_note.size = Vector2(248, 28)
+	promo_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	promo_host.add_child(promo_note)
+
 	var map_panel := ui.panel(Color(PANEL, 0.96), 22)
-	map_panel.position = Vector2(48, 165)
-	map_panel.size = Vector2(1160, 820)
+	map_panel.position = Vector2(472, 165)
+	map_panel.size = Vector2(736, 820)
 	add_child(map_panel)
 	var map_title := ui.label("城市任务地图", 21, ui.INK)
 	map_title.position = Vector2(26, 16)
 	map_panel.add_child(map_title)
 	var map_caption := ui.label("CITY GRID  /  实时同步", 15, MUTED)
-	map_caption.position = Vector2(800, 22)
-	map_caption.size = Vector2(334, 28)
+	map_caption.position = Vector2(380, 22)
+	map_caption.size = Vector2(300, 28)
 	map_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	map_panel.add_child(map_caption)
 	map_renderer = MapRenderer.new()
 	map_renderer.position = Vector2(16, 56)
-	map_renderer.size = Vector2(1128, 702)
+	map_renderer.size = Vector2(704, 702)
 	map_renderer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	map_panel.add_child(map_renderer)
 	knowledge_label = ui.label("按顺序编写指令，让小码抵达目标。", 18, MUTED)
 	knowledge_label.position = Vector2(28, 774)
-	knowledge_label.size = Vector2(1104, 30)
+	knowledge_label.size = Vector2(680, 30)
 	knowledge_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	map_panel.add_child(knowledge_label)
 
