@@ -15,9 +15,12 @@
 - [x] **管理端密钥失效后仍停留在面板**（收到 HTTP 401 或 WebSocket 4401 后未清除过期密钥并返回输入状态）— **`1972874`**
 - [x] **投票变化向玩家端广播无用状态快照**（`vote-cast` 原本以最高 40 Hz 向所有客户端发送包含 `currentTally` 的完整 `state.snapshot`；现保留 Godot 展示端和管理员的合并广播，玩家自己的选择通过 ACK 确认）— **`0056741`**
 - [x] **投票截止前 1 秒无法提交**（服务端原本提前拒绝投票并提示“本步已经锁票”；现持续接受投票直至截止时刻，截止后提示“投票已结束”）— **`f4b65cd`**
+- [x] **Godot 正式大屏左侧海报不显示**（新素材 `poster.png` 缺 `.import` 登记文件且从未导入，`ui.texture()` 加载失败返回 null；setup 的导入只在 `.env` 缺失时执行一次）— `start-local.sh` 每次启动前统一执行 Godot 导入 **`594bbca`**；`poster.png.import` 入库 **`f8223c2`**
+- [x] **Godot 大屏海报被撑大到屏外（左上准、右下溢出）**（`TextureRect` 先赋 `texture` 会被钳制为图片原生尺寸 1061×1500，之后再设 `expand_mode`/`size` 均无效；需先设 `expand_mode = EXPAND_IGNORE_SIZE` 与目标尺寸，最后才赋 texture）— **`4d1404e`**
+- [x] **`pnpm load-test` 报 "Timed out waiting for welcome snapshot"**（脚本用默认 development 密钥签 token，而服务端以 `.env` 的随机 `SESSION_SECRET` 校验，失败即关闭连接、不发 welcome；现脚本自动加载仓库 `.env` 的 `SESSION_SECRET`/`ADMIN_TOKEN`，找不到才回退默认值）— **`cd68c60`**
+- [x] **百人同时扫码加入时部分玩家被限流**（`POST /api/session` 原本按 IP 限 60 次/分钟、全局 600 次/分钟，现场共用同一出口 IP 时 100 并发约 40 个 HTTP 429；上限改为 `.env` 可配的 `SESSION_RATE_PER_IP`（默认 600）与 `SESSION_RATE_GLOBAL`（默认 6000），按 300 人场次放宽）— **`ce2705f`**
 
 ## 未修复
 
 - [ ] **UI 丑**（具体页面、视觉问题和验收标准待补充）
 - [ ] **成功/失败提示**（程序执行结束后短暂显示明确的成功或失败提示，再自动进入下一关；不恢复预测、三星评分或独立结算阶段）
-- [ ] **百人同时扫码加入时部分玩家被限流**（`POST /api/session` 当前按 IP 限制为每分钟 60 次；现场玩家共用同一出口 IP 时，100 个并发请求中约 40 个会返回 HTTP 429）
