@@ -36,6 +36,8 @@ const config = {
   logLevel: process.env.LOG_LEVEL ?? "info",
   databasePath: process.env.DATABASE_PATH ?? resolve(process.cwd(), "runtime", "game.sqlite"),
   maxPlayers: Number(process.env.MAX_PLAYERS ?? 300),
+  sessionRatePerIp: Number(process.env.SESSION_RATE_PER_IP ?? 600),
+  sessionRateGlobal: Number(process.env.SESSION_RATE_GLOBAL ?? 6000),
 };
 
 interface ConnectedClient {
@@ -210,7 +212,8 @@ app.get("/api/health", async () => {
 
 app.post("/api/session", async (request, reply) => {
   const ip = request.ip;
-  if (!rateLimiter.allow("session:global", 600, 60_000) || !rateLimiter.allow(`session:${ip}`, 60, 60_000)) {
+  if (!rateLimiter.allow("session:global", config.sessionRateGlobal, 60_000)
+    || !rateLimiter.allow(`session:${ip}`, config.sessionRatePerIp, 60_000)) {
     return reply.code(429).send({ error: "请求过于频繁" });
   }
   const value = createSessionToken(config.sessionSecret);
