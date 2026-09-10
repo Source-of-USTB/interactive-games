@@ -2,211 +2,24 @@
 param()
 
 $ErrorActionPreference = 'Continue'
-$ProjectDir = Split-Path -Parent $PSScriptRoot
-Set-Location -LiteralPath $ProjectDir
-
-$script:RunLogDir = $null
-$script:RunLogPath = $null
-$script:ServerProcess = $null
-$script:GodotProcess = $null
-$script:HealthClient = $null
-$script:HealthUseWebRequest = $false
-
-function Write-Log {
-    param(
-        [Parameter(Mandatory)][string]$Level,
-        [Parameter(Mandatory)][string]$Message
-    )
-    $line = "[$Level] $Message"
-    $color = switch ($Level) {
-        'INFO' { 'Cyan' }
-        'WARN' { 'Yellow' }
-        'ERROR' { 'Red' }
-        'OK' { 'Green' }
-        'HINT' { 'Magenta' }
-        default { 'Gray' }
-    }
-    Write-Host $line -ForegroundColor $color
-    if ($script:RunLogPath) {
-        Add-Content -LiteralPath $script:RunLogPath -Value $line -Encoding UTF8
-    }
-}
-
-function Add-RunLogLine {
-    param([Parameter(Mandatory)][string]$Line)
-    Write-Host $Line
-    if ($script:RunLogPath) {
-        Add-Content -LiteralPath $script:RunLogPath -Value $Line -Encoding UTF8
-    }
-}
-
-function Invoke-NativeCommand {
-    param(
-        [Parameter(Mandatory)][string]$Command,
-        [string[]]$Arguments = @()
-    )
-    & $Command @Arguments 2>&1 | ForEach-Object {
-        $text = if ($_ -is [System.Management.Automation.ErrorRecord]) { $_.ToString() } else { [string]$_ }
-        Add-RunLogLine $text
-    }
-    return $LASTEXITCODE
-}
-
-function Test-ProcessRunning {
-    param([int]$ProcessId)
-    if (-not $ProcessId) { return $false }
-    return $null -ne (Get-Process -Id $ProcessId -ErrorAction SilentlyContinue)
-}
-
-function Stop-ProcessTree {
-    param([int]$ProcessId)
-    if (-not (Test-ProcessRunning $ProcessId)) { return }
-    & taskkill.exe /PID $ProcessId /T /F *> $null
-}
-
-function Stop-RunProcesses {
-    if ($script:GodotProcess -and (Test-ProcessRunning $script:GodotProcess.Id)) {
-        Stop-ProcessTree $script:GodotProcess.Id
-        try { $script:GodotProcess.WaitForExit() } catch { }
-    }
-    if ($script:ServerProcess -and (Test-ProcessRunning $script:ServerProcess.Id)) {
-        Stop-ProcessTree $script:ServerProcess.Id
-        try { $script:ServerProcess.WaitForExit() } catch { }
-    }
-}
-
-function Start-TrackedProcess {
-    param(
-        [Parameter(Mandatory)][string]$FilePath,
-        [string[]]$Arguments = @()
-    )
-    $argumentText = ($Arguments | ForEach-Object {
-        if ($_ -match '[\s"]') { '"' + ($_ -replace '"', '\"') + '"' } else { $_ }
-    }) -join ' '
-    $startInfo = New-Object System.Diagnostics.ProcessStartInfo
-    $startInfo.UseShellExecute = $false
-    $startInfo.WorkingDirectory = $ProjectDir
-    if ([System.IO.Path]::GetExtension($FilePath) -ieq '.exe') {
-        $startInfo.FileName = $FilePath
-        $startInfo.Arguments = $argumentText
-    } else {
-        $startInfo.FileName = 'cmd.exe'
-        $startInfo.Arguments = '/d /s /c ""' + $FilePath + '" ' + $argumentText + '"'
-    }
-    return [System.Diagnostics.Process]::Start($startInfo)
-}
-
-function Test-HealthEndpoint {
-    param([Parameter(Mandatory)][string]$Url)
-    if (-not $script:HealthClient -and -not $script:HealthUseWebRequest) {
-        try {
-            Add-Type -AssemblyName System.Net.Http -ErrorAction Stop
-            $handler = New-Object System.Net.Http.HttpClientHandler
-            $handler.UseProxy = $false
-            $client = New-Object System.Net.Http.HttpClient -ArgumentList $handler
-            $client.Timeout = [TimeSpan]::FromSeconds(3)
-            $script:HealthClient = $client
-        } catch {
-            $script:HealthUseWebRequest = $true
-        }
-    }
-    if ($script:HealthUseWebRequest) {
-        try {
-            $response = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 3
-            return $response.StatusCode -eq 200
-        } catch {
-            return $false
-        }
-    }
-    try {
-        $response = $script:HealthClient.GetAsync($Url).GetAwaiter().GetResult()
-        return $response.IsSuccessStatusCode
-    } catch {
-        return $false
-    }
-}
-
-function Import-DotEnv {
-    param([Parameter(Mandatory)][string]$Path)
-    if (-not (Test-Path -LiteralPath $Path)) { return }
-    foreach ($line in Get-Content -LiteralPath $Path) {
-        $trimmed = $line.Trim()
-        if ($trimmed -eq '' -or $trimmed.StartsWith('#')) { continue }
-        $separator = $trimmed.IndexOf('=')
-        if ($separator -lt 1) { continue }
-        $name = $trimmed.Substring(0, $separator).Trim()
-        $value = $trimmed.Substring($separator + 1).Trim()
-        if ($value.Length -ge 2) {
-            $first = $value[0]
-            $last = $value[$value.Length - 1]
-            if (($first -eq '"' -and $last -eq '"') -or ($first -eq "'" -and $last -eq "'")) {
-                $value = $value.Substring(1, $value.Length - 2)
-            }
-        }
-        [Environment]::SetEnvironmentVariable($name, $value, 'Process')
-    }
-}
-
-function Get-LocalIpAddress {
-    try {
-        $socket = [System.Net.Sockets.Socket]::new(
-            [System.Net.Sockets.AddressFamily]::InterNetwork,
-            [System.Net.Sockets.SocketType]::Dgram,
-            [System.Net.Sockets.ProtocolType]::Udp)
-        try {
-            $socket.Connect('1.1.1.1', 80)
-            return $socket.LocalEndPoint.Address.ToString()
-        } finally {
-            $socket.Dispose()
-        }
-    } catch {
-        return '127.0.0.1'
-    }
-}
-
-function Test-PortInUse {
-    param([Parameter(Mandatory)][int]$Port)
-    if (Get-Command Get-NetTCPConnection -ErrorAction SilentlyContinue) {
-        $listeners = @(Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue)
-        return $listeners.Count -gt 0
-    }
-    $netstat = & netstat.exe -ano 2>$null | Select-String -Pattern ":$Port\s"
-    return [bool]$netstat
-}
-
-function Get-ServerFailureStatus {
-    $status = 1
-    if ($script:ServerProcess) {
-        try {
-            $script:ServerProcess.WaitForExit()
-            $status = $script:ServerProcess.ExitCode
-        } catch { }
-    }
-    Write-Log ERROR "Game server exited unexpectedly with status $status."
-    $serverLog = Join-Path $script:RunLogDir 'server.log'
-    if (Test-Path -LiteralPath $serverLog) {
-        Write-Log ERROR 'Last server log lines:'
-        Get-Content -LiteralPath $serverLog -Tail 20 | ForEach-Object { Add-RunLogLine $_ }
-    }
-    return $status
-}
+. (Join-Path $PSScriptRoot 'win-common.ps1')
+Set-Location -LiteralPath $WinCommon.ProjectDir
 
 function Invoke-Preflight {
     param([Parameter(Mandatory)][int]$Port)
     $failed = $false
 
     foreach ($commandName in @('node', 'pnpm', 'godot')) {
-        $commandInfo = Get-Command $commandName -CommandType Application -ErrorAction SilentlyContinue
-        if ($commandInfo) {
-            Write-Log OK "$commandName`: $($commandInfo.Source)"
+        $commandPath = Get-CommandPath $commandName
+        if ($commandPath) {
+            Write-Log OK "$commandName`: $commandPath"
         } else {
             Write-Log ERROR "Missing command: $commandName"
             $failed = $true
         }
     }
 
-    $nodeInfo = Get-Command node -CommandType Application -ErrorAction SilentlyContinue
-    if ($nodeInfo) {
+    if (Get-CommandPath 'node') {
         $nodeMajor = 0
         try { $nodeMajor = [int](& node -p 'process.versions.node.split(".")[0]') } catch { $nodeMajor = 0 }
         if ($nodeMajor -lt 24) {
@@ -218,9 +31,9 @@ function Invoke-Preflight {
         }
     }
 
-    $envPath = Join-Path $ProjectDir '.env'
+    $envPath = Join-Path $WinCommon.ProjectDir '.env'
     if (-not (Test-Path -LiteralPath $envPath)) {
-        Write-Log ERROR 'Missing .env. Run scripts/setup-local.sh first.'
+        Write-Log ERROR 'Missing .env. Run scripts/setup-local.ps1 first.'
         $failed = $true
     } else {
         Write-Log OK '.env is present.'
@@ -247,7 +60,7 @@ function Invoke-Preflight {
 
     $localIp = Get-LocalIpAddress
     Write-Log INFO "Detected local URL: http://${localIp}:$Port"
-    if (Get-Command cloudflared -ErrorAction SilentlyContinue) {
+    if (Get-CommandPath 'cloudflared') {
         Write-Log OK 'cloudflared is installed. Public mode is available.'
     } else {
         Write-Log INFO 'cloudflared is not installed. Local Wi-Fi mode is still available.'
@@ -256,22 +69,13 @@ function Invoke-Preflight {
     return (-not $failed)
 }
 
-$runId = if ($env:RUN_ID) { $env:RUN_ID } else { '{0}-{1}' -f (Get-Date -Format 'yyyyMMdd-HHmmss'), $PID }
-$script:RunLogDir = if ($env:RUN_LOG_DIR) { $env:RUN_LOG_DIR } else { Join-Path $ProjectDir ('runtime/logs/' + $runId) }
-New-Item -ItemType Directory -Force -Path $script:RunLogDir | Out-Null
-$env:RUN_ID = $runId
-$env:RUN_LOG_DIR = $script:RunLogDir
-$script:RunLogPath = Join-Path $script:RunLogDir 'run.log'
+Initialize-RunContext
 
 $publicOriginOverride = $env:PUBLIC_ORIGIN
-Import-DotEnv (Join-Path $ProjectDir '.env')
+Import-DotEnv (Join-Path $WinCommon.ProjectDir '.env')
 if ($publicOriginOverride) { $env:PUBLIC_ORIGIN = $publicOriginOverride }
 
-$port = 3000
-if ($env:PORT) {
-    $parsedPort = 0
-    if ([int]::TryParse($env:PORT.Trim(), [ref]$parsedPort)) { $port = $parsedPort }
-}
+$port = Get-EnvInt -Name 'PORT' -Default 3000
 
 $exitCode = 1
 try {
@@ -285,12 +89,12 @@ try {
             throw "pnpm build failed with exit code $buildStatus."
         }
     }
-    New-Item -ItemType Directory -Force -Path (Join-Path $ProjectDir 'runtime') | Out-Null
+    New-Item -ItemType Directory -Force -Path (Join-Path $WinCommon.ProjectDir 'runtime') | Out-Null
 
-    $pnpmInfo = Get-Command pnpm -CommandType Application -ErrorAction SilentlyContinue
-    if (-not $pnpmInfo) { throw 'Missing command: pnpm' }
-    $script:ServerProcess = Start-TrackedProcess -FilePath $pnpmInfo.Source -Arguments @('start')
-    $serverProcess = $script:ServerProcess
+    $pnpmPath = Get-CommandPath 'pnpm'
+    if (-not $pnpmPath) { throw 'Missing command: pnpm' }
+    $WinCommon.ServerProcess = Start-TrackedProcess -FilePath $pnpmPath -Arguments @('start')
+    $serverProcess = $WinCommon.ServerProcess
 
     if (-not (Test-ProcessRunning $serverProcess.Id)) {
         $null = Get-ServerFailureStatus
@@ -323,7 +127,7 @@ try {
         if ($publicCheckOrigin -ne $env:PUBLIC_ORIGIN) {
             Write-Log WARN "Public URL is not checked from this computer. Verify it from a phone: $($env:PUBLIC_ORIGIN)"
         }
-        $publicCheckLog = Join-Path $script:RunLogDir 'public-check.log'
+        $publicCheckLog = Join-Path $WinCommon.RunLogDir 'public-check.log'
         $publicReady = $false
         for ($attempt = 0; $attempt -lt 20; $attempt++) {
             & node --use-env-proxy scripts/check-public.mjs $publicCheckOrigin *> $publicCheckLog
@@ -337,7 +141,7 @@ try {
             if (Test-Path -LiteralPath $publicCheckLog) {
                 Get-Content -LiteralPath $publicCheckLog -Tail 20 | ForEach-Object { Add-RunLogLine $_ }
             }
-            Write-Log INFO 'Run the matching diagnose-*-public.sh script for tunnel details.'
+            Write-Log INFO 'Run the matching diagnose-*-public script for tunnel details.'
             throw 'Public player path validation failed.'
         }
         if ($publicCheckOrigin -eq $env:PUBLIC_ORIGIN) {
@@ -356,10 +160,10 @@ try {
     }
     Write-Log INFO 'Starting Godot display. Press F11 for fullscreen.'
 
-    $godotInfo = Get-Command godot -CommandType Application -ErrorAction SilentlyContinue
-    if (-not $godotInfo) { throw 'Missing command: godot' }
-    $script:GodotProcess = Start-TrackedProcess -FilePath $godotInfo.Source -Arguments @('--path', 'apps/godot', '--fullscreen')
-    $godotProcess = $script:GodotProcess
+    $godotPath = Get-CommandPath 'godot'
+    if (-not $godotPath) { throw 'Missing command: godot' }
+    $WinCommon.GodotProcess = Start-TrackedProcess -FilePath $godotPath -Arguments @('--path', 'apps/godot', '--fullscreen')
+    $godotProcess = $WinCommon.GodotProcess
 
     while (Test-ProcessRunning $godotProcess.Id) {
         if (-not (Test-ProcessRunning $serverProcess.Id)) {
@@ -394,10 +198,7 @@ try {
     Write-Log ERROR $_.Exception.Message
     $exitCode = 1
 } finally {
-    Stop-RunProcesses
-    if ($script:HealthClient -and $script:HealthClient -is [System.IDisposable]) {
-        try { $script:HealthClient.Dispose() } catch { }
-    }
+    Close-WinCommon
 }
 
 exit $exitCode
